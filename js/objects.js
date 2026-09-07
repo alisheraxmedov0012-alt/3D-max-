@@ -81,78 +81,110 @@ export function createDoor(doorWidth, doorHeight, wallCenterX, wallCenterZ, wall
     return group;
 }
 
-// Mebel yaratish (kengaytirilgan)
-export function createFurniture(type, position, wallColor = 0xcccccc) {
+// Mebel yaratish (kengaytirilgan, yangi turlar bilan)
+export function createFurniture(type, position) {
     const parts = [];
+    const [x, y, z] = position;
 
     switch (type) {
         case 'sofa':
-            parts.push(createBox(2, 0.5, 1, 0x336699, position[0], position[1], position[2]));
-            parts.push(createBox(2, 0.8, 0.2, 0x336699, position[0], position[1] + 0.65, position[2] - 0.4));
-            parts.push(createBox(0.9, 0.4, 0.9, 0x4477aa, position[0], position[1] + 0.45, position[2] + 0.2));
+            parts.push(createBox(2, 0.5, 1, 0x336699, x, y, z));
+            parts.push(createBox(2, 0.8, 0.2, 0x336699, x, y + 0.65, z - 0.4));
+            parts.push(createBox(0.9, 0.4, 0.9, 0x4477aa, x, y + 0.45, z + 0.2));
             break;
 
         case 'table':
-            parts.push(createBox(1.5, 0.05, 0.8, 0x8b5a2b, position[0], position[1] + 0.25, position[2]));
+            parts.push(createBox(1.5, 0.05, 0.8, 0x8b5a2b, x, y + 0.25, z));
             for (let dx of [-0.6, 0.6]) {
                 for (let dz of [-0.3, 0.3]) {
-                    parts.push(createBox(0.1, 0.5, 0.1, 0x5c3a1a, position[0] + dx, position[1] - 0.25, position[2] + dz));
+                    parts.push(createBox(0.1, 0.5, 0.1, 0x5c3a1a, x + dx, y - 0.25, z + dz));
                 }
             }
             break;
 
         case 'chair':
-            parts.push(createBox(0.5, 0.05, 0.5, 0x8b5a2b, position[0], position[1] + 0.25, position[2]));
-            parts.push(createBox(0.5, 0.4, 0.5, 0x5c3a1a, position[0], position[1] - 0.25, position[2]));
-            parts.push(createBox(0.5, 0.5, 0.05, 0x5c3a1a, position[0], position[1] + 0.5, position[2] - 0.2));
+            parts.push(createBox(0.5, 0.05, 0.5, 0x8b5a2b, x, y + 0.25, z));
+            parts.push(createBox(0.5, 0.4, 0.5, 0x5c3a1a, x, y - 0.25, z));
+            parts.push(createBox(0.5, 0.5, 0.05, 0x5c3a1a, x, y + 0.5, z - 0.2));
             break;
 
         case 'bed':
-            parts.push(createBox(1.6, 0.5, 2, 0x5c3a1a, position[0], position[1], position[2]));
-            parts.push(createBox(1.6, 0.2, 2, 0xffffff, position[0], position[1] + 0.35, position[2]));
-            parts.push(createBox(0.6, 0.15, 0.5, 0xffffff, position[0], position[1] + 0.5, position[2] - 0.7));
+            parts.push(createBox(1.6, 0.5, 2, 0x5c3a1a, x, y, z));
+            parts.push(createBox(1.6, 0.2, 2, 0xffffff, x, y + 0.35, z));
+            parts.push(createBox(0.6, 0.15, 0.5, 0xffffff, x, y + 0.5, z - 0.7));
             break;
 
         case 'wardrobe':
-            parts.push(createBox(1.5, 2.4, 0.6, 0x8b5a2b, position[0], position[1], position[2]));
-            parts.push(createBox(0.03, 2.2, 0.03, 0x555555, position[0], position[1] + 0.1, position[2] + 0.31));
+            parts.push(createBox(1.5, 2.4, 0.6, 0x8b5a2b, x, y, z));
+            parts.push(createBox(0.03, 2.2, 0.03, 0x555555, x, y + 0.1, z + 0.31));
             break;
 
         case 'rug':
-            parts.push(createBox(2.5, 0.05, 1.8, 0xaa3333, position[0], position[1], position[2]));
+            parts.push(createBox(2.5, 0.05, 1.8, 0xaa3333, x, y, z));
             break;
 
         case 'tv':
-            parts.push(createBox(1.2, 0.8, 0.1, 0x111111, position[0], position[1], position[2]));
-            parts.push(createBox(0.4, 0.4, 0.3, 0x444444, position[0], position[1] - 0.6, position[2] + 0.05));
+            parts.push(createBox(1.2, 0.8, 0.1, 0x111111, x, y, z));
+            parts.push(createBox(0.4, 0.4, 0.3, 0x444444, x, y - 0.6, z + 0.05));
             break;
 
         case 'bookshelf':
-            parts.push(createBox(1.2, 2.2, 0.5, 0x8b5a2b, position[0], position[1], position[2]));
+            parts.push(createBox(1.2, 2.2, 0.5, 0x8b5a2b, x, y, z));
             for (let i = 0; i < 4; i++) {
-                parts.push(createBox(1.1, 0.05, 0.45, 0x5c3a1a, position[0], position[1] - 0.8 + i * 0.55, position[2]));
+                parts.push(createBox(1.1, 0.05, 0.45, 0x5c3a1a, x, y - 0.8 + i * 0.55, z));
             }
             break;
 
         case 'fridge':
-            parts.push(createBox(0.8, 1.8, 0.7, 0xcccccc, position[0], position[1], position[2]));
-            parts.push(createBox(0.7, 0.8, 0.1, 0xdddddd, position[0], position[1] + 0.5, position[2] + 0.36));
-            parts.push(createBox(0.7, 0.5, 0.1, 0xdddddd, position[0], position[1] - 0.4, position[2] + 0.36));
+            parts.push(createBox(0.8, 1.8, 0.7, 0xcccccc, x, y, z));
+            parts.push(createBox(0.7, 0.8, 0.1, 0xdddddd, x, y + 0.5, z + 0.36));
+            parts.push(createBox(0.7, 0.5, 0.1, 0xdddddd, x, y - 0.4, z + 0.36));
             break;
 
         case 'fireplace':
-            parts.push(createBox(1.5, 0.8, 0.5, 0x663333, position[0], position[1], position[2]));
-            parts.push(createBox(1.2, 0.5, 0.4, 0x333333, position[0], position[1] + 0.4, position[2]));
+            parts.push(createBox(1.5, 0.8, 0.5, 0x663333, x, y, z));
+            parts.push(createBox(1.2, 0.5, 0.4, 0x333333, x, y + 0.4, z));
             break;
 
         case 'lamp':
-            parts.push(createCylinder(0.08, 0.08, 1.5, 0x888888, position[0], position[1] + 0.75, position[2]));
-            parts.push(createCylinder(0.3, 0.3, 0.2, 0xffcc44, position[0], position[1] + 1.5, position[2]));
+            parts.push(createCylinder(0.08, 0.08, 1.5, 0x888888, x, y + 0.75, z));
+            parts.push(createCylinder(0.3, 0.3, 0.2, 0xffcc44, x, y + 1.5, z));
             break;
 
         case 'painting':
-            parts.push(createBox(0.8, 0.6, 0.05, 0xaa8866, position[0], position[1], position[2]));
-            parts.push(createBox(0.6, 0.4, 0.06, 0x336699, position[0], position[1], position[2]));
+            parts.push(createBox(0.8, 0.6, 0.05, 0xaa8866, x, y, z));
+            parts.push(createBox(0.6, 0.4, 0.06, 0x336699, x, y, z));
+            break;
+
+        // --- YANGI TURLAR ---
+        case 'cabinet': // hammom va oshxona uchun shkaf
+            parts.push(createBox(0.8, 0.9, 0.5, 0x8b5a2b, x, y, z));
+            parts.push(createBox(0.6, 0.6, 0.1, 0xcccccc, x, y + 0.15, z + 0.26));
+            break;
+
+        case 'sink': // rakovina
+            parts.push(createBox(0.6, 0.2, 0.5, 0xffffff, x, y, z));
+            parts.push(createCylinder(0.15, 0.1, 0.1, 0xcccccc, x, y + 0.2, z));
+            break;
+
+        case 'toilet':
+            parts.push(createBox(0.4, 0.4, 0.5, 0xffffff, x, y, z));
+            parts.push(createCylinder(0.2, 0.2, 0.3, 0xffffff, x, y + 0.5, z - 0.15));
+            break;
+
+        case 'shower':
+            parts.push(createBox(0.8, 1.8, 0.8, 0x88aacc, x, y, z));
+            parts.push(createBox(0.7, 0.05, 0.7, 0xcccccc, x, y + 0.1, z));
+            break;
+
+        case 'car': // oddiy mashina
+            parts.push(createBox(1.8, 0.5, 3.5, 0xcc3333, x, y + 0.25, z));
+            parts.push(createBox(1.2, 0.4, 1.8, 0xcc3333, x, y + 0.7, z + 0.3));
+            for (let dx of [-0.7, 0.7]) {
+                for (let dz of [-1.3, 1.3]) {
+                    parts.push(createCylinder(0.25, 0.25, 0.2, 0x222222, x + dx, y, z + dz));
+                }
+            }
             break;
     }
 
@@ -170,13 +202,11 @@ export function createTree(x, z) {
     return group;
 }
 
-// Tom (pyramida uslubidagi gable emas, balki oddiy cho'qqi)
+// Tom (oddiy cho'qqi)
 export function createRoof(width, depth, height, color) {
     const group = new THREE.Group();
-    // Asosiy to'rtburchak asos
     const base = createBox(width, 0.2, depth, color, 0, height, 0);
     group.add(base);
-    // Uchburchak qiyaliklar (oddiy konuslar)
     const slopeHeight = height * 0.6;
     const slope = createCylinder(0, width / 2, slopeHeight, color, 0, height + slopeHeight / 2, 0);
     slope.rotation.z = 0;
@@ -184,7 +214,3 @@ export function createRoof(width, depth, height, color) {
     group.add(slope);
     return group;
 }
-
-// Oldingi yaratilgan funksiyalarni eksport qilish
-export { createCylinder as cylinder, createSphere as sphere };
-                                 
