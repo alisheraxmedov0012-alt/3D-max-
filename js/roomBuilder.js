@@ -1,15 +1,12 @@
 import * as THREE from 'three';
-import { createBox, createWindow, createDoor, createFurniture } from './objects.js';
+import { createBox, createMaterial, createWindow, createDoor, createFurniture, createTree, createRoof } from './objects.js';
 
-// Devorni teshiklar bilan qurish (deraza/eshik uchun)
-function createWallWithOpenings(wallLength, wallHeight, openings, position, rotationY) {
-    // openings: [{type:'window'|'door', width, height, distanceFromStart, sillHeight?}]
+// Devorni teshiklar bilan qurish
+function createWallWithOpenings(wallLength, wallHeight, openings, position, rotationY, wallColor = 0xcccccc) {
     const group = new THREE.Group();
     const thickness = 0.2;
-    const color = 0xcccccc;
 
-    let currentX = -wallLength / 2; // devor bo'ylab lokal koordinata (boshlanish nuqtasi)
-
+    let currentX = -wallLength / 2;
     openings.sort((a, b) => a.distanceFromStart - b.distanceFromStart);
 
     openings.forEach(opening => {
@@ -19,17 +16,18 @@ function createWallWithOpenings(wallLength, wallHeight, openings, position, rota
         // Oldingi devor qismi
         const beforeWidth = openingDistance - currentX;
         if (beforeWidth > 0.01) {
-            const segment = createBox(beforeWidth, wallHeight, thickness, color, currentX + beforeWidth/2, wallHeight/2, 0);
+            const segment = createBox(beforeWidth, wallHeight, thickness, wallColor, currentX + beforeWidth / 2, wallHeight / 2, 0);
+            segment.material = createMaterial(wallColor);
             group.add(segment);
         }
 
-        // Teshik joyida deraza yoki eshik qo'shamiz
+        // Teshik joyida deraza yoki eshik
         if (opening.type === 'window') {
             const windowGroup = createWindow(
                 openingWidth,
                 opening.height,
                 opening.sillHeight || 0.8,
-                openingDistance + openingWidth/2,
+                openingDistance + openingWidth / 2,
                 0,
                 0
             );
@@ -38,38 +36,39 @@ function createWallWithOpenings(wallLength, wallHeight, openings, position, rota
             const doorGroup = createDoor(
                 openingWidth,
                 opening.height,
-                openingDistance + openingWidth/2,
+                openingDistance + openingWidth / 2,
                 0,
                 0
             );
             group.add(doorGroup);
         }
 
-        // Yuqoridagi devor qismi (deraza/eshik ustida)
-        const aboveHeight = wallHeight - (opening.sillHeight || 0) - opening.height;
+        const sill = opening.sillHeight || 0;
+        const aboveHeight = wallHeight - sill - opening.height;
+
+        // Yuqoridagi devor qismi
         if (aboveHeight > 0.01) {
             const aboveSegment = createBox(
                 openingWidth,
                 aboveHeight,
                 thickness,
-                color,
-                openingDistance + openingWidth/2,
-                (opening.sillHeight || 0) + opening.height + aboveHeight/2,
+                wallColor,
+                openingDistance + openingWidth / 2,
+                sill + opening.height + aboveHeight / 2,
                 0
             );
             group.add(aboveSegment);
         }
 
-        // Pastdagi devor qismi (deraza ostida)
-        const sill = opening.sillHeight || 0;
+        // Pastdagi devor qismi
         if (sill > 0.01) {
             const sillSegment = createBox(
                 openingWidth,
                 sill,
                 thickness,
-                color,
-                openingDistance + openingWidth/2,
-                sill/2,
+                wallColor,
+                openingDistance + openingWidth / 2,
+                sill / 2,
                 0
             );
             group.add(sillSegment);
@@ -81,7 +80,7 @@ function createWallWithOpenings(wallLength, wallHeight, openings, position, rota
     // Qolgan devor qismi
     const afterWidth = wallLength / 2 - currentX;
     if (afterWidth > 0.01) {
-        const segment = createBox(afterWidth, wallHeight, thickness, color, currentX + afterWidth/2, wallHeight/2, 0);
+        const segment = createBox(afterWidth, wallHeight, thickness, wallColor, currentX + afterWidth / 2, wallHeight / 2, 0);
         group.add(segment);
     }
 
@@ -90,59 +89,30 @@ function createWallWithOpenings(wallLength, wallHeight, openings, position, rota
     return group;
 }
 
-// Xona yaratish (pol, devorlar, deraza/eshiklar, mebellar)
-export function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture, floorColor = 0x8a5a2b) {
+// Xona yaratish (materiallar bilan)
+function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture, materials = {}) {
     const group = new THREE.Group();
+
+    const wallColor = materials.wall || 0xcccccc;
+    const floorColor = materials.floor || 0x8a5a2b;
 
     // Pol
     const floor = createBox(roomWidth, 0.2, roomDepth, floorColor, 0, -0.1, 0);
     group.add(floor);
 
-    // Devorlar (har biri alohida teshiklar bilan)
     const halfW = roomWidth / 2;
     const halfD = roomDepth / 2;
 
-    // Old devor (z = -halfD)
-    const frontWall = createWallWithOpenings(
-        roomWidth,
-        wallHeight,
-        openings.front || [],
-        { x: 0, z: -halfD },
-        0
-    );
-    group.add(frontWall);
+    // Old devor
+    group.add(createWallWithOpenings(roomWidth, wallHeight, openings.front || [], { x: 0, z: -halfD }, 0, wallColor));
+    // Orqa devor
+    group.add(createWallWithOpenings(roomWidth, wallHeight, openings.back || [], { x: 0, z: halfD }, Math.PI, wallColor));
+    // Chap devor
+    group.add(createWallWithOpenings(roomDepth, wallHeight, openings.left || [], { x: -halfW, z: 0 }, -Math.PI / 2, wallColor));
+    // O'ng devor
+    group.add(createWallWithOpenings(roomDepth, wallHeight, openings.right || [], { x: halfW, z: 0 }, Math.PI / 2, wallColor));
 
-    // Orqa devor (z = +halfD)
-    const backWall = createWallWithOpenings(
-        roomWidth,
-        wallHeight,
-        openings.back || [],
-        { x: 0, z: halfD },
-        Math.PI
-    );
-    group.add(backWall);
-
-    // Chap devor (x = -halfW)
-    const leftWall = createWallWithOpenings(
-        roomDepth,
-        wallHeight,
-        openings.left || [],
-        { x: -halfW, z: 0 },
-        -Math.PI / 2
-    );
-    group.add(leftWall);
-
-    // O'ng devor (x = +halfW)
-    const rightWall = createWallWithOpenings(
-        roomDepth,
-        wallHeight,
-        openings.right || [],
-        { x: halfW, z: 0 },
-        Math.PI / 2
-    );
-    group.add(rightWall);
-
-    // Mebellar
+    // Mebel
     furniture.forEach(item => {
         const parts = createFurniture(item.type, item.position);
         parts.forEach(part => group.add(part));
@@ -151,44 +121,105 @@ export function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture
     return group;
 }
 
-// Ko'p xonali uy rejasini yaratish (hozircha oddiy: asosiy xona + oshxona)
-export function createHouse(roomCount, hasKitchen, hasGarage, hasWindows, hasDoors, furniture) {
-    const group = new THREE.Group();
+// Xona turiga qarab standart ochilishlar
+function getDefaultOpenings(roomType, hasWindows, hasDoors) {
+    const openings = { front: [], back: [], left: [], right: [] };
+    const wallLength = 6;
 
-    // Asosiy xona (kattaroq)
-    const mainWidth = 6;
-    const mainDepth = 6;
-    const wallHeight = 3;
-
-    let mainOpenings = {};
     if (hasWindows) {
-        mainOpenings.front = [{ type: 'window', width: 1.5, height: 1.2, distanceFromStart: 2, sillHeight: 0.8 }];
-        mainOpenings.back = [{ type: 'window', width: 1.5, height: 1.2, distanceFromStart: 3, sillHeight: 0.8 }];
-        mainOpenings.left = [{ type: 'window', width: 1.2, height: 1.2, distanceFromStart: 2.5, sillHeight: 0.8 }];
-        mainOpenings.right = [{ type: 'window', width: 1.2, height: 1.2, distanceFromStart: 2.5, sillHeight: 0.8 }];
+        openings.front.push({ type: 'window', width: 1.4, height: 1.2, distanceFromStart: 1.5, sillHeight: 0.8 });
+        openings.back.push({ type: 'window', width: 1.4, height: 1.2, distanceFromStart: 3, sillHeight: 0.8 });
+        openings.left.push({ type: 'window', width: 1.2, height: 1.2, distanceFromStart: 2, sillHeight: 0.8 });
+        openings.right.push({ type: 'window', width: 1.2, height: 1.2, distanceFromStart: 2, sillHeight: 0.8 });
     }
     if (hasDoors) {
-        mainOpenings.front.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: 4, sillHeight: 0 });
+        openings.front.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: 4.5, sillHeight: 0 });
     }
-    const mainRoom = createRoom(mainWidth, mainDepth, wallHeight, mainOpenings, furniture);
-    group.add(mainRoom);
 
-    // Oshxona (agar so'ralsa)
-    if (hasKitchen) {
-        const kitchenWidth = 4;
-        const kitchenDepth = 4;
-        const kitchenOpenings = {};
-        if (hasWindows) {
-            kitchenOpenings.front = [{ type: 'window', width: 1.2, height: 1.2, distanceFromStart: 1.5, sillHeight: 0.8 }];
+    return openings;
+}
+
+// Butun uyni (ko'p xonali) qurish
+export function buildHouse(data) {
+    const group = new THREE.Group();
+    const wallHeight = 3;
+    const roomSize = {
+        living: { w: 6, d: 6 },
+        kitchen: { w: 4, d: 4 },
+        bedroom: { w: 4, d: 4 },
+        kids: { w: 4, d: 4 },
+        bathroom: { w: 3, d: 3 },
+        garage: { w: 4, d: 5 },
+        corridor: { w: 2, d: 6 }
+    };
+
+    const rooms = data.rooms;
+    const spacing = 0.3;
+    let cursorX = 0;
+    const totalWidth = rooms.reduce((sum, r) => sum + roomSize[r.type].w + spacing, -spacing);
+    cursorX = -totalWidth / 2;
+
+    // Har bir xonani joylashtirish
+    rooms.forEach((room, index) => {
+        const size = roomSize[room.type] || roomSize.living;
+        const openings = getDefaultOpenings(room.type, data.hasWindows, data.hasDoors);
+
+        // Mebelni faqat birinchi (asosiy) xonaga qo'yamiz, boshqalariga oddiy
+        const roomFurniture = index === 0 ? data.furniture : [];
+
+        const roomGroup = createRoom(
+            size.w,
+            size.d,
+            wallHeight,
+            openings,
+            roomFurniture,
+            data.materials
+        );
+        roomGroup.position.x = cursorX + size.w / 2;
+        group.add(roomGroup);
+
+        // Tom qo'shish (agar so'ralsa)
+        if (data.roof) {
+            const roofColor = data.materials.roof || 0xaa5555;
+            const roofMesh = createRoof(size.w, size.d, 1.5, roofColor);
+            roofMesh.position.set(roomGroup.position.x, wallHeight, 0);
+            group.add(roofMesh);
         }
-        if (hasDoors) {
-            kitchenOpenings.front.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: 3, sillHeight: 0 });
-        }
-        const kitchen = createRoom(kitchenWidth, kitchenDepth, wallHeight, kitchenOpenings, []);
-        kitchen.position.x = mainWidth / 2 + kitchenWidth / 2 + 0.2; // yonma-yon
-        group.add(kitchen);
+
+        cursorX += size.w + spacing;
+    });
+
+    // Landshaft
+    if (data.landscape) {
+        const groundWidth = totalWidth + 10;
+        const groundDepth = 10;
+        const ground = createBox(groundWidth, 0.1, groundDepth, 0x77aa55, 0, -0.3, 0);
+        group.add(ground);
+
+        // Daraxtlar
+        const treePositions = [
+            [-groundWidth / 2 + 2, -4],
+            [groundWidth / 2 - 2, -4],
+            [-groundWidth / 2 + 2, 4],
+            [groundWidth / 2 - 2, 4],
+            [0, -5],
+            [0, 5]
+        ];
+        treePositions.forEach(([x, z]) => {
+            group.add(createTree(x, z));
+        });
+
+        // Yo'l (old eshikdan)
+        const path = createBox(1.5, 0.05, 3, 0x999999, 0, -0.25, -5);
+        group.add(path);
     }
 
     return group;
-          }
+}
 
+// Uy guruhini sahnaga moslashtirish (kamera framing uchun bounding box)
+export function getHouseBoundingBox(houseGroup) {
+    const box = new THREE.Box3().setFromObject(houseGroup);
+    return box;
+                      }
+        
