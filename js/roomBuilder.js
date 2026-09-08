@@ -11,32 +11,51 @@ import {
     createFloorSlab
 } from './objects.js';
 
-// Devorni teshiklar bilan qurish
+// Xona o'lchamlarini olish (Dinamik + Standart fallback)
+function getRoomSize(roomType, customDimensions = {}) {
+    if (customDimensions[roomType]) {
+        return customDimensions[roomType];
+    }
+    const defaultSizes = {
+        living: { w: 6, d: 6 },
+        kitchen: { w: 4, d: 4 },
+        bedroom: { w: 4, d: 4 },
+        kids: { w: 4, d: 4 },
+        bathroom: { w: 3, d: 3 },
+        garage: { w: 5, d: 6 },
+        corridor: { w: 2.5, d: 6 },
+        office: { w: 4, d: 4 }
+    };
+    return defaultSizes[roomType] || { w: 5, d: 5 };
+}
+
+// Devorni teshiklar (deraza/eshik) bilan xavfsiz qurish
 function createWallWithOpenings(wallLength, wallHeight, openings, position, rotationY, wallColor = 0xcccccc) {
     const group = new THREE.Group();
     const thickness = 0.2;
 
     let currentX = -wallLength / 2;
-    openings.sort((a, b) => a.distanceFromStart - b.distanceFromStart);
+    const sortedOpenings = [...openings].sort((a, b) => a.distanceFromStart - b.distanceFromStart);
 
-    openings.forEach(opening => {
+    sortedOpenings.forEach(opening => {
         const openingWidth = opening.width;
-        const openingDistance = opening.distanceFromStart;
-
+        // Teshik devor chegarasidan chiqib ketmasligini ta'minlash
+        const openingStart = Math.max(-wallLength / 2, Math.min(wallLength / 2 - openingWidth, opening.distanceFromStart - wallLength / 2));
+        
         // Oldingi devor qismi
-        const beforeWidth = openingDistance - currentX;
-        if (beforeWidth > 0.01) {
+        const beforeWidth = openingStart - currentX;
+        if (beforeWidth > 0.05) {
             const segment = createBox(beforeWidth, wallHeight, thickness, wallColor, currentX + beforeWidth / 2, wallHeight / 2, 0);
             group.add(segment);
         }
 
-        // Teshik joyida deraza yoki eshik
+        // Deraza yoki Eshik o'rnatish
         if (opening.type === 'window') {
             const windowGroup = createWindow(
                 openingWidth,
                 opening.height,
                 opening.sillHeight || 0.8,
-                openingDistance + openingWidth / 2,
+                openingStart + openingWidth / 2,
                 0,
                 0
             );
@@ -45,7 +64,7 @@ function createWallWithOpenings(wallLength, wallHeight, openings, position, rota
             const doorGroup = createDoor(
                 openingWidth,
                 opening.height,
-                openingDistance + openingWidth / 2,
+                openingStart + openingWidth / 2,
                 0,
                 0
             );
@@ -55,40 +74,40 @@ function createWallWithOpenings(wallLength, wallHeight, openings, position, rota
         const sill = opening.sillHeight || 0;
         const aboveHeight = wallHeight - sill - opening.height;
 
-        // Yuqoridagi devor qismi
-        if (aboveHeight > 0.01) {
+        // Teshik tepasidagi devor
+        if (aboveHeight > 0.05) {
             const aboveSegment = createBox(
                 openingWidth,
                 aboveHeight,
                 thickness,
                 wallColor,
-                openingDistance + openingWidth / 2,
+                openingStart + openingWidth / 2,
                 sill + opening.height + aboveHeight / 2,
                 0
             );
             group.add(aboveSegment);
         }
 
-        // Pastdagi devor qismi
-        if (sill > 0.01) {
+        // Teshik ostidagi devor (deraza tokchasi osti)
+        if (sill > 0.05) {
             const sillSegment = createBox(
                 openingWidth,
                 sill,
                 thickness,
                 wallColor,
-                openingDistance + openingWidth / 2,
+                openingStart + openingWidth / 2,
                 sill / 2,
                 0
             );
             group.add(sillSegment);
         }
 
-        currentX = openingDistance + openingWidth;
+        currentX = openingStart + openingWidth;
     });
 
-    // Qolgan devor qismi
+    // Devorning oxirgi qismi
     const afterWidth = wallLength / 2 - currentX;
-    if (afterWidth > 0.01) {
+    if (afterWidth > 0.05) {
         const segment = createBox(afterWidth, wallHeight, thickness, wallColor, currentX + afterWidth / 2, wallHeight / 2, 0);
         group.add(segment);
     }
@@ -98,90 +117,72 @@ function createWallWithOpenings(wallLength, wallHeight, openings, position, rota
     return group;
 }
 
-// Xona turiga mos standart mebellar
+// Xona turiga mos standart mebellar joylashuvi
 function getDefaultFurniture(roomType) {
-    const furniture = [];
-
     switch (roomType) {
         case 'living':
-            furniture.push({ type: 'sofa', position: [1.5, 0.5, 1.5] });
-            furniture.push({ type: 'table', position: [-1.5, 0.5, 1.5] });
-            furniture.push({ type: 'tv', position: [0, 1.6, -2.9] });
-            furniture.push({ type: 'painting', position: [2, 1.8, -2.95] });
-            furniture.push({ type: 'rug', position: [0, 0.1, 0] });
-            furniture.push({ type: 'lamp', position: [2.5, 0.3, 2.5] });
-            break;
-
+            return [
+                { type: 'sofa', position: [0, 0.2, 1.5] },
+                { type: 'table', position: [0, 0.35, 0] },
+                { type: 'tv', position: [0, 0, -2.5] },
+                { type: 'rug', position: [0, 0.01, 0] },
+                { type: 'lamp', position: [2.0, 0, 2.0] }
+            ];
         case 'kitchen':
-            furniture.push({ type: 'table', position: [0, 0.5, 1] });
-            furniture.push({ type: 'fridge', position: [-1.5, 0.9, -1.5] });
-            furniture.push({ type: 'cabinet', position: [1.5, 0.45, -1.5] });
-            furniture.push({ type: 'sink', position: [0, 0.5, -1.5] });
-            furniture.push({ type: 'lamp', position: [0, 0.3, 0] });
-            break;
-
+            return [
+                { type: 'table', position: [1.0, 0.35, 0] },
+                { type: 'fridge', position: [-1.2, 0.6, -1.2] },
+                { type: 'cabinet', position: [0, 0.2, -1.2] }
+            ];
         case 'bedroom':
-            furniture.push({ type: 'bed', position: [0, 0.5, 2] });
-            furniture.push({ type: 'wardrobe', position: [-2.5, 1.3, 0] });
-            furniture.push({ type: 'lamp', position: [1.5, 0.3, 0] });
-            furniture.push({ type: 'rug', position: [0, 0.1, -1] });
-            break;
-
+            return [
+                { type: 'bed', position: [0, 0.2, 1.2] },
+                { type: 'wardrobe', position: [-1.5, 0.9, -1.2] },
+                { type: 'lamp', position: [1.2, 0, -1.2] }
+            ];
         case 'kids':
-            furniture.push({ type: 'bed', position: [0, 0.5, 1.5] });
-            furniture.push({ type: 'table', position: [-1.5, 0.5, -1.5] });
-            furniture.push({ type: 'bookshelf', position: [1.5, 1.2, -1.5] });
-            furniture.push({ type: 'chair', position: [-1.8, 0.5, -1.2] });
-            break;
-
+            return [
+                { type: 'bed', position: [-1.0, 0.2, 1.0] },
+                { type: 'table', position: [1.0, 0.35, -1.0] },
+                { type: 'chair', position: [1.0, 0.2, -0.3] }
+            ];
         case 'bathroom':
-            furniture.push({ type: 'toilet', position: [-1, 0.4, 1.5] });
-            furniture.push({ type: 'sink', position: [1, 0.5, 1.5] });
-            furniture.push({ type: 'shower', position: [0, 0.9, -1.5] });
-            furniture.push({ type: 'cabinet', position: [1.5, 0.45, -1.5] });
-            break;
-
-        case 'garage':
-            furniture.push({ type: 'car', position: [0, 0.25, 0] });
-            break;
-
-        case 'corridor':
-            furniture.push({ type: 'painting', position: [0, 1.6, -2.9] });
-            break;
+            return [
+                { type: 'toilet', position: [-0.8, 0.2, 1.0] },
+                { type: 'sink', position: [0.8, 0.25, 1.0] }
+            ];
+        default:
+            return [];
     }
-
-    return furniture;
 }
 
-// Xona yaratish (materiallar, xonaga mos mebellar, shift bilan)
-function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture, materials = {}, roomType = 'living') {
+// Yagona xona obyektini yig'ish
+function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture = [], materials = {}, roomType = 'living') {
     const group = new THREE.Group();
+    group.userData = { type: roomType, isInteractable: false };
 
-    const wallColor = materials.wall || 0xcccccc;
+    const wallColor = materials.wall || 0xd1c7bd;
     const floorColor = materials.floor || 0x8a5a2b;
 
-    // Pol
+    // Pol va Shift
     const floor = createFloorSlab(roomWidth, 0.2, roomDepth, floorColor, 0, -0.1, 0);
-    group.add(floor);
-
-    // Shift
     const ceiling = createFloorSlab(roomWidth, 0.2, roomDepth, wallColor, 0, wallHeight + 0.1, 0);
-    group.add(ceiling);
+    group.add(floor, ceiling);
 
     const halfW = roomWidth / 2;
     const halfD = roomDepth / 2;
 
-    // Devorlar
+    // 4 ta devor
     group.add(createWallWithOpenings(roomWidth, wallHeight, openings.front || [], { x: 0, z: -halfD }, 0, wallColor));
     group.add(createWallWithOpenings(roomWidth, wallHeight, openings.back || [], { x: 0, z: halfD }, Math.PI, wallColor));
     group.add(createWallWithOpenings(roomDepth, wallHeight, openings.left || [], { x: -halfW, z: 0 }, -Math.PI / 2, wallColor));
     group.add(createWallWithOpenings(roomDepth, wallHeight, openings.right || [], { x: halfW, z: 0 }, Math.PI / 2, wallColor));
 
-    // Mebel
-    const defaultFurniture = getDefaultFurniture(roomType);
-    const allFurniture = [...defaultFurniture, ...furniture];
+    // Mebellarni ustma-ust tushirmasdan joylash
+    const defaultList = getDefaultFurniture(roomType);
+    const finalFurniture = furniture.length > 0 ? furniture : defaultList;
 
-    allFurniture.forEach(item => {
+    finalFurniture.forEach(item => {
         const parts = createFurniture(item.type, item.position);
         parts.forEach(part => group.add(part));
     });
@@ -189,48 +190,40 @@ function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture, mater
     return group;
 }
 
-// Xona turiga qarab standart ochilishlar
-function getDefaultOpenings(roomType, hasWindows, hasDoors) {
+// Xona uchun standart deraza va eshik o'rinlari
+function getDefaultOpenings(roomWidth, roomDepth, hasWindows, hasDoors) {
     const openings = { front: [], back: [], left: [], right: [] };
 
     if (hasWindows) {
-        openings.front.push({ type: 'window', width: 1.4, height: 1.2, distanceFromStart: 1.5, sillHeight: 0.8 });
-        openings.back.push({ type: 'window', width: 1.4, height: 1.2, distanceFromStart: 3, sillHeight: 0.8 });
-        openings.left.push({ type: 'window', width: 1.2, height: 1.2, distanceFromStart: 2, sillHeight: 0.8 });
-        openings.right.push({ type: 'window', width: 1.2, height: 1.2, distanceFromStart: 2, sillHeight: 0.8 });
+        openings.front.push({ type: 'window', width: 1.4, height: 1.2, distanceFromStart: roomWidth * 0.3, sillHeight: 0.9 });
+        openings.back.push({ type: 'window', width: 1.4, height: 1.2, distanceFromStart: roomWidth * 0.5, sillHeight: 0.9 });
     }
 
     if (hasDoors) {
-        openings.front.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: 4.5, sillHeight: 0 });
-
-        if (roomType !== 'living') {
-            openings.back.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: 0.5, sillHeight: 0 });
-        }
+        openings.front.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: roomWidth * 0.7, sillHeight: 0 });
     }
 
     return openings;
 }
 
-// Bir qavatdagi barcha xonalarni ketma-ket joylashtirish
-function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, materials, hasWindows, hasDoors) {
+// Bir qavatdagi barcha xonalarni joylashtirish
+function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, data) {
     const group = new THREE.Group();
-    const roomSize = {
-        living: { w: 6, d: 6 },
-        kitchen: { w: 4, d: 4 },
-        bedroom: { w: 4, d: 4 },
-        kids: { w: 4, d: 4 },
-        bathroom: { w: 3, d: 3 },
-        garage: { w: 4, d: 5 },
-        corridor: { w: 2, d: 6 }
-    };
+    const customDims = data.roomDimensions || {};
 
-    const totalWidth = roomList.reduce((sum, r) => sum + roomSize[r.type].w + spacing, -spacing);
+    let totalWidth = 0;
+    const roomSizes = roomList.map(r => {
+        const sz = getRoomSize(r.type, customDims);
+        totalWidth += sz.w;
+        return sz;
+    });
+
+    totalWidth += (roomList.length - 1) * spacing;
     let cursorX = -totalWidth / 2;
 
     roomList.forEach((room, index) => {
-        const size = roomSize[room.type] || roomSize.living;
-        const openings = getDefaultOpenings(room.type, hasWindows, hasDoors);
-
+        const size = roomSizes[index];
+        const openings = getDefaultOpenings(size.w, size.d, data.hasWindows, data.hasDoors);
         const roomExtraFurniture = index === 0 ? extraFurniture : [];
 
         const roomGroup = createRoom(
@@ -239,43 +232,35 @@ function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, materia
             wallHeight,
             openings,
             roomExtraFurniture,
-            materials,
+            data.materials || {},
             room.type
         );
-        roomGroup.position.x = cursorX + size.w / 2;
+
+        roomGroup.position.set(cursorX + size.w / 2, 0, 0);
         group.add(roomGroup);
 
         cursorX += size.w + spacing;
     });
 
-    return group;
+    return { floorGroup: group, totalWidth };
 }
 
-// Butun uyni qurish (ko'p qavatli)
+// Butun binoni (Ko'p qavatli uy) yig'ish
 export function buildHouse(data) {
     const group = new THREE.Group();
-    const wallHeight = 3;
+    const wallHeight = 3.0;
     const floorThickness = 0.2;
     const spacing = 0.3;
-    const roomSize = {
-        living: { w: 6, d: 6 },
-        kitchen: { w: 4, d: 4 },
-        bedroom: { w: 4, d: 4 },
-        kids: { w: 4, d: 4 },
-        bathroom: { w: 3, d: 3 },
-        garage: { w: 4, d: 5 },
-        corridor: { w: 2, d: 6 }
-    };
 
-    const rooms = data.rooms;
+    const rooms = data.rooms || [{ type: 'living' }];
     const floors = Math.max(1, data.floors || 1);
 
     const effectiveFloors = Math.min(floors, rooms.length || 1);
     const roomsPerFloor = Math.ceil(rooms.length / effectiveFloors);
 
-    const extraFurniture = data.furniture;
+    let maxFloorWidth = 0;
+    let maxFloorDepth = 6;
 
-    // Har bir qavat uchun xonalar
     for (let f = 0; f < effectiveFloors; f++) {
         const startIdx = f * roomsPerFloor;
         const endIdx = Math.min(startIdx + roomsPerFloor, rooms.length);
@@ -284,75 +269,60 @@ export function buildHouse(data) {
         if (floorRooms.length === 0) continue;
 
         const yOffset = f * (wallHeight + floorThickness);
-
-        const floorGroup = createFloorLevel(
+        const { floorGroup, totalWidth } = createFloorLevel(
             floorRooms,
             spacing,
             wallHeight,
-            extraFurniture,
-            data.materials,
-            data.hasWindows,
-            data.hasDoors
+            data.furniture || [],
+            data
         );
+
         floorGroup.position.y = yOffset;
         group.add(floorGroup);
 
-        // Tom faqat eng yuqori qavatda
+        if (totalWidth > maxFloorWidth) maxFloorWidth = totalWidth;
+
+        // Tom butun eng yuqori qavatni yopadi
         if (data.roof && f === effectiveFloors - 1) {
-            const firstRoom = floorRooms[0];
-            const size = roomSize[firstRoom.type] || roomSize.living;
-            const roofColor = data.materials.roof || 0xaa5555;
-            const roofMesh = createGableRoof(size.w, size.d, 1.5, roofColor);
-
-            // To'g'ri markazlashtirish: birinchi xonaning markazi
-            const firstRoomGroup = floorGroup.children.find(child => child.type === 'Group');
-            const firstRoomCenterX = firstRoomGroup ? (firstRoomGroup.position.x || 0) : 0;
-
-            roofMesh.position.set(firstRoomCenterX, yOffset + wallHeight, 0);
+            const roofColor = data.materials?.roof || 0xa53a3a;
+            const roofMesh = createGableRoof(totalWidth + 0.6, maxFloorDepth + 0.6, 1.8, roofColor);
+            roofMesh.position.set(0, yOffset + wallHeight + 0.1, 0);
             group.add(roofMesh);
         }
     }
 
-    // Zinapoya
+    // Ikki va undan yuqori qavatlar uchun zinapoya
     if (effectiveFloors > 1) {
-        const stairsWidth = 1.2;
-        const stairsDepth = 2.5;
-        const stairsHeight = wallHeight;
-        const stairs = createStairs(stairsWidth, stairsDepth, stairsHeight, 0x8b5a2b, -2.5, 0.1, -2.5);
+        const stairs = createStairs(1.2, 2.5, wallHeight, 0x5c3a1a, -maxFloorWidth / 2 + 1, 0, -1);
         group.add(stairs);
     }
 
-    // Landshaft
+    // Landshaft va daraxtlar
     if (data.landscape) {
-        const totalWidth = rooms.reduce((sum, r) => sum + roomSize[r.type].w + spacing, -spacing);
-        const groundWidth = totalWidth + 10;
-        const groundDepth = 10;
-        const ground = createFloorSlab(groundWidth, 0.1, groundDepth, 0x77aa55, 0, -0.3, 0);
+        const groundWidth = maxFloorWidth + 14;
+        const groundDepth = maxFloorDepth + 14;
+        const ground = createFloorSlab(groundWidth, 0.1, groundDepth, 0x4caf50, 0, -0.15, 0);
         group.add(ground);
 
-        // Daraxtlar ro'yxati [x, z]
         const treePositions = [
-            [-groundWidth / 2 + 2, -4],
-            [groundWidth / 2 - 2, -4],
-            [-groundWidth / 2 + 2, 4],
-            [groundWidth / 2 - 2, 4],
-            [0, -5],
-            [0, 5]
+            [-groundWidth / 2 + 2, -groundDepth / 2 + 2],
+            [groundWidth / 2 - 2, -groundDepth / 2 + 2],
+            [-groundWidth / 2 + 2, groundDepth / 2 - 2],
+            [groundWidth / 2 - 2, groundDepth / 2 - 2],
+            [0, -groundDepth / 2 + 1.5]
         ];
 
-        // 9-bosqich: instancing bilan daraxtlar
         const instancedTrees = createTreeInstances(treePositions);
         group.add(instancedTrees);
 
-        const path = createBox(1.5, 0.05, 3, 0x999999, 0, -0.25, -5);
+        const path = createBox(1.8, 0.02, 4, 0x9e9e9e, 0, -0.08, groundDepth / 2 - 2);
         group.add(path);
     }
 
     return group;
 }
 
-// Uy guruhini sahnaga moslashtirish uchun bounding box
+// Sahnaga moslashtirish uchun BoundingBox olish
 export function getHouseBoundingBox(houseGroup) {
-    const box = new THREE.Box3().setFromObject(houseGroup);
-    return box;
+    return new THREE.Box3().setFromObject(houseGroup);
 }
