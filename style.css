@@ -77,6 +77,22 @@ body {
     background: #ff4444;
 }
 
+#ui #save-btn {
+    background: #3366cc;
+}
+
+#ui #save-btn:hover {
+    background: #224499;
+}
+
+#ui #load-btn {
+    background: #663399;
+}
+
+#ui #load-btn:hover {
+    background: #442266;
+}
+
 #ui small {
     color: #666;
     display: block;
