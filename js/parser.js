@@ -1,8 +1,21 @@
-// Kuchaytirilgan NLP parser — matnni tahlil qilib, qurilish parametrlarini chiqaradi
-// O'zbek va ingliz tillarida ishlaydi
+// O'zbek va Ingliz tillari uchun kuchaytirilgan va gibrid NLP Parser
 
+/**
+ * Matndagi tutroq va maxsus belgilarni bir xil ko'rinishga keltirish
+ */
+function normalizeText(text) {
+    return text
+        .toLowerCase()
+        .replace(/[`‘’]/g, "'")
+        .trim();
+}
+
+/**
+ * Aniq qoidalar (Rule-Based RegEx) asosida tezkor parser
+ */
 export function parsePrompt(text) {
-    const lower = text.toLowerCase().trim();
+    const lower = normalizeText(text);
+    
     const data = {
         rooms: [],
         furniture: [],
@@ -15,214 +28,186 @@ export function parsePrompt(text) {
         hasDoors: false,
         windowsCount: 0,
         doorsCount: 0,
-        roomDimensions: {}, // {living: {w, d}, ...}
+        roomDimensions: {},
         random: false,
-        lighting: 'day'     // 8-bosqichdagi yangi maydon
+        lighting: 'day'
     };
 
-    // ============ QAVATLAR SONI ============
-    const floorMatch = lower.match(/(\d+)\s*qavat/);
-    if (floorMatch) data.floors = Math.max(1, parseInt(floorMatch[1]));
-    if (lower.includes('two story') || lower.includes('two-storey')) data.floors = 2;
-    if (lower.includes('three story') || lower.includes('three-storey')) data.floors = 3;
+    // ============ 1. QAVATLAR SONI ============
+    const floorMatch = lower.match(/(\d+)\s*(?:qavat|story|storey|этаж)/);
+    if (floorMatch) {
+        data.floors = Math.max(1, parseInt(floorMatch[1], 10));
+    } else if (lower.includes('bir qavat') || lower.includes('one story')) data.floors = 1;
+    else if (lower.includes('ikki qavat') || lower.includes('two story')) data.floors = 2;
+    else if (lower.includes('uch qavat') || lower.includes('three story')) data.floors = 3;
 
-    // ============ XONA TURLARI ============
+    // ============ 2. XONA TURLARI VA O'LCHAMLARI ============
     const roomTypes = [
-        { keys: ['yashash xonasi', 'mehmonxona', 'living room', 'living'], type: 'living' },
+        { keys: ['yashash xonasi', 'mehmonxona', 'living room', 'living', 'gostinaya'], type: 'living' },
         { keys: ['oshxona', 'kitchen'], type: 'kitchen' },
         { keys: ['yotoqxona', 'bedroom', 'bed room', 'sleeping'], type: 'bedroom' },
-        { keys: ['bolalar xonasi', 'kid room', 'children room', 'kids room', 'kids'], type: 'kids' },
-        { keys: ['hammom', 'vannaxona', 'bathroom', 'toilet'], type: 'bathroom' },
+        { keys: ['bolalar xonasi', 'kid room', 'children room', 'kids'], type: 'kids' },
+        { keys: ['hammom', 'vannaxona', 'bathroom', 'toilet', 'wc'], type: 'bathroom' },
         { keys: ['garaj', 'garage'], type: 'garage' },
         { keys: ['koridor', 'corridor', 'hallway', 'hall'], type: 'corridor' },
-        { keys: ['ofis', 'office'], type: 'living' }
+        { keys: ['ofis', 'kabinet', 'office'], type: 'office' }
     ];
 
     roomTypes.forEach(rt => {
-        const found = rt.keys.some(key => lower.includes(key));
-        if (found) data.rooms.push({ type: rt.type });
+        if (rt.keys.some(key => lower.includes(key))) {
+            data.rooms.push({ type: rt.type });
+        }
     });
 
-    // Agar aniq xona turi bo'lmasa, "xonali" sonini hisobga olamiz
     if (data.rooms.length === 0) {
         const roomCountMatch = lower.match(/(\d+)\s*xonali/);
-        const roomCount = roomCountMatch ? parseInt(roomCountMatch[1]) : 1;
+        const roomCount = roomCountMatch ? parseInt(roomCountMatch[1], 10) : 1;
         data.rooms.push({ type: 'living' });
         for (let i = 1; i < roomCount; i++) data.rooms.push({ type: 'bedroom' });
     }
 
-    // ============ MEBBEL VA JIHOZLAR ============
+    // Xonalarga mos o'lchamlarni ajratib olish (masalan: "yashash xonasi 6x8, yotoqxona 4x4")
+    const dimRegex = /(\b[a-z'ʻ‘]+(?:\s+[a-z'ʻ‘]+)?\b)?\s*(\d+)\s*[x×*]\s*(\d+)/g;
+    let match;
+    while ((match = dimRegex.exec(lower)) !== null) {
+        const roomName = match[1] ? match[1].trim() : null;
+        const w = parseInt(match[2], 10);
+        const d = parseInt(match[3], 10);
+
+        let targetRoom = data.rooms[0]?.type || 'living';
+        if (roomName) {
+            const matchedRt = roomTypes.find(rt => rt.keys.some(k => roomName.includes(k)));
+            if (matchedRt) targetRoom = matchedRt.type;
+        }
+        data.roomDimensions[targetRoom] = { w, d };
+    }
+
+    // ============ 3. MEBEL VA JIHOZLAR (SONI BILAN) ============
     const furnitureKeywords = [
-        { keys: ['divan', 'sofa'], type: 'sofa', pos: [1.5, 0.5, 1.5] },
-        { keys: ['stol', 'table'], type: 'table', pos: [-1.5, 0.5, 1.5] },
-        { keys: ['karavot', 'kravat', 'bed'], type: 'bed', pos: [0, 0.5, 2] },
-        { keys: ['shkaf', 'wardrobe', 'closet'], type: 'wardrobe', pos: [-2.5, 1.3, 0] },
-        { keys: ['gilam', 'rug', 'carpet'], type: 'rug', pos: [0, 0.1, 0] },
-        { keys: ['televizor', 'tv'], type: 'tv', pos: [0, 1.6, -2.9] },
-        { keys: ['kreslo', 'chair', 'armchair'], type: 'chair', pos: [2, 0.5, 2] },
-        { keys: ['kitob javoni', 'bookshelf', 'shelf'], type: 'bookshelf', pos: [-2, 1.5, -2] },
-        { keys: ['muzlatgich', 'fridge', 'refrigerator'], type: 'fridge', pos: [-2, 1.2, -2] },
-        { keys: ['kamin', 'fireplace'], type: 'fireplace', pos: [0, 0.3, -2.8] },
-        { keys: ['chiroq', 'lamp'], type: 'lamp', pos: [0, 0.3, 0] },
-        { keys: ['rasm', 'painting', 'picture'], type: 'painting', pos: [2, 1.8, -2.95] },
-        { keys: ['kabinet', 'cabinet'], type: 'cabinet', pos: [1.5, 0.45, -1.5] },
-        { keys: ['rakovina', 'sink'], type: 'sink', pos: [0, 0.5, -1.5] },
-        { keys: ['unitaz', 'toilet', 'wc'], type: 'toilet', pos: [-1, 0.4, 1.5] },
-        { keys: ['dush', 'shower'], type: 'shower', pos: [0, 0.9, -1.5] },
-        { keys: ['mashina', 'car', 'auto'], type: 'car', pos: [0, 0.25, 0] }
+        { keys: ['divan', 'sofa'], type: 'sofa', basePos: [1.5, 0.5, 1.5] },
+        { keys: ['stol', 'table'], type: 'table', basePos: [-1.5, 0.5, 1.5] },
+        { keys: ['stul', 'kreslo', 'chair', 'armchair'], type: 'chair', basePos: [1.8, 0.5, 1.0] },
+        { keys: ['karavot', 'kravat', 'bed'], type: 'bed', basePos: [0, 0.5, 2] },
+        { keys: ['shkaf', 'wardrobe', 'closet'], type: 'wardrobe', basePos: [-2.5, 1.3, 0] },
+        { keys: ['gilam', 'rug', 'carpet'], type: 'rug', basePos: [0, 0.01, 0] },
+        { keys: ['televizor', 'tv'], type: 'tv', basePos: [0, 1.6, -2.9] },
+        { keys: ['kitob javoni', 'bookshelf', 'shelf'], type: 'bookshelf', basePos: [-2, 1.5, -2] },
+        { keys: ['muzlatgich', 'fridge', 'refrigerator'], type: 'fridge', basePos: [-2, 1.2, -2] },
+        { keys: ['chiroq', 'lamp', 'torsher'], type: 'lamp', basePos: [0, 0.3, 0] }
     ];
 
     furnitureKeywords.forEach(fk => {
-        const found = fk.keys.some(key => lower.includes(key));
-        if (found) {
-            const exists = data.furniture.some(f => f.type === fk.type);
-            if (!exists) data.furniture.push({ type: fk.type, position: fk.pos.slice() });
-        }
+        fk.keys.forEach(key => {
+            const pattern = new RegExp(`(?:(\\d+)\\s*(?:ta|dona|x)?\\s*)?${key}`, 'g');
+            let fMatch;
+            while ((fMatch = pattern.exec(lower)) !== null) {
+                const count = fMatch[1] ? parseInt(fMatch[1], 10) : 1;
+                for (let i = 0; i < count; i++) {
+                    // Mebellar bir joyga ustma-ust tushmasligi uchun ozgina offset beramiz
+                    const offset = i * 0.6;
+                    const pos = [fk.basePos[0] + offset, fk.basePos[1], fk.basePos[2]];
+                    data.furniture.push({ type: fk.type, position: pos });
+                }
+            }
+        });
     });
 
-    // ============ RANGLAR VA MATERIALLAR ============
+    // ============ 4. RANGLAR VA MATERIALLAR ============
     const colorKeywords = [
         { keys: ['oq', 'white'], hex: 0xffffff },
         { keys: ['qora', 'black'], hex: 0x111111 },
         { keys: ['qizil', 'red'], hex: 0xff3333 },
         { keys: ['yashil', 'green'], hex: 0x33aa33 },
-        { keys: ["ko'k", 'ko‘k', 'blue'], hex: 0x3344ff },
+        { keys: ["ko'k", 'blue'], hex: 0x3344ff },
         { keys: ['jigarrang', 'brown'], hex: 0x8b4513 },
         { keys: ['kulrang', 'gray', 'grey'], hex: 0x888888 },
-        { keys: ['sariq', 'yellow'], hex: 0xffff33 },
-        { keys: ['binafsha', 'purple', 'violet'], hex: 0x8833aa },
-        { keys: ["to'q sariq", 'orange'], hex: 0xff8833 },
-        { keys: ['pushti', 'pink'], hex: 0xff88cc },
-        { keys: ['bej', 'beige'], hex: 0xe0c0a0 }
+        { keys: ['sariq', 'yellow'], hex: 0xffff33 }
     ];
 
     colorKeywords.forEach(ck => {
         ck.keys.forEach(key => {
             const idx = lower.indexOf(key);
             if (idx !== -1) {
-                const context = lower.slice(Math.max(0, idx - 20), idx + key.length + 20);
+                const context = lower.slice(Math.max(0, idx - 15), idx + key.length + 15);
                 if (/devor|wall/.test(context)) data.materials.wall = ck.hex;
-                if (/pol|floor/.test(context)) data.materials.floor = ck.hex;
-                if (/tom|roof/.test(context)) data.materials.roof = ck.hex;
-                if (!data.materials.wall && !data.materials.floor && !data.materials.roof) {
-                    data.materials.wall = ck.hex;
-                }
+                else if (/pol|floor/.test(context)) data.materials.floor = ck.hex;
+                else if (/tom|roof/.test(context)) data.materials.roof = ck.hex;
+                else if (!data.materials.wall) data.materials.wall = ck.hex;
             }
         });
     });
 
-    const materialKeywords = [
-        { keys: ["yog'och", 'wood', 'wooden'], color: 0x8a5a2b },
-        { keys: ['marmar', 'marble'], color: 0xdddddd },
-        { keys: ['beton', 'concrete'], color: 0x999999 },
-        { keys: ['shisha', 'glass'], color: 0x88aacc },
-        { keys: ['metall', 'metal'], color: 0x888888 },
-        { keys: ["g'isht", 'brick'], color: 0xbb5533 },
-        { keys: ['tosh', 'stone'], color: 0x999999 }
-    ];
-
-    materialKeywords.forEach(mk => {
-        const found = mk.keys.some(key => lower.includes(key));
-        if (found) {
-            if (lower.includes('pol') || lower.includes('floor')) data.materials.floor = mk.color;
-            else if (lower.includes('devor') || lower.includes('wall')) data.materials.wall = mk.color;
-            else if (lower.includes('tom') || lower.includes('roof')) data.materials.roof = mk.color;
-            else data.materials.floor = mk.color;
-        }
-    });
-
-    // ============ USLUB (STYLE) ============
+    // ============ 5. USLUB (STYLE) ============
     const styles = [
         { keys: ['zamonaviy', 'modern'], style: 'modern' },
         { keys: ['klassik', 'classic'], style: 'classic' },
         { keys: ['minimalizm', 'minimalist'], style: 'minimalist' },
         { keys: ['loft'], style: 'loft' },
-        { keys: ['skandinaviya', 'scandinavian'], style: 'scandinavian' },
-        { keys: ['rustik', 'rustic'], style: 'rustic' }
+        { keys: ['skandinaviya', 'scandinavian'], style: 'scandinavian' }
     ];
-
     styles.forEach(s => {
         if (s.keys.some(key => lower.includes(key))) data.style = s.style;
     });
 
-    // ============ DERAZA VA ESHIK ============
+    // ============ 6. DERAZA, ESHIK VA YORITISH ============
     data.hasWindows = /deraza|window/.test(lower);
     data.hasDoors = /eshik|door/.test(lower);
 
-    // Deraza soni (o'zbek)
-    const windowsCountMatch = lower.match(/(\d+)\s*deraza/);
-    if (windowsCountMatch) data.windowsCount = parseInt(windowsCountMatch[1]);
+    const winMatch = lower.match(/(\d+)\s*(?:ta|dona)?\s*(?:deraza|window)/);
+    if (winMatch) data.windowsCount = parseInt(winMatch[1], 10);
 
-    // Deraza soni (ingliz)
-    const englishWindowsCount = lower.match(/(\d+)\s*windows/);
-    if (englishWindowsCount) data.windowsCount = parseInt(englishWindowsCount[1]);
+    const doorMatch = lower.match(/(\d+)\s*(?:ta|dona)?\s*(?:eshik|door)/);
+    if (doorMatch) data.doorsCount = parseInt(doorMatch[1], 10);
 
-    // Eshik soni (o'zbek)
-    const doorsCountMatch = lower.match(/(\d+)\s*eshik/);
-    if (doorsCountMatch) data.doorsCount = parseInt(doorsCountMatch[1]);
+    data.landscape = /(maysa|hovli|daraxt|tree|garden|landscape|park)/.test(lower);
+    data.roof = /(tom|roof)/.test(lower);
 
-    // Eshik soni (ingliz)
-    const englishDoorsCount = lower.match(/(\d+)\s*doors/);
-    if (englishDoorsCount) data.doorsCount = parseInt(englishDoorsCount[1]);
+    if (/(kechqurun|sunset|evening)/.test(lower)) data.lighting = 'sunset';
+    else if (/(tun|night|kecha)/.test(lower)) data.lighting = 'night';
+    else if (/(bulutli|cloudy)/.test(lower)) data.lighting = 'cloudy';
+    else if (/(quyoshli|sunny|yorug)/.test(lower)) data.lighting = 'sunny';
 
-    // ============ LANDSCAFT VA TOM ============
-    if (/(maysa|hovli|daraxt|tree|garden|landscape|park)/.test(lower)) {
-        data.landscape = true;
-    }
-    if (/(tom|roof)/.test(lower)) data.roof = true;
-
-    // ============ O'LCHAMLAR (XONA O'LCHAMLARI) ============
-    // Format: "6x8", "6*8", "6×8"
-    const dimensionRegex = /(\d+)\s*[x×*]\s*(\d+)/;
-    const dimMatch = lower.match(dimensionRegex);
-    if (dimMatch) {
-        const w = parseInt(dimMatch[1]);
-        const d = parseInt(dimMatch[2]);
-        if (data.rooms.length > 0) {
-            data.roomDimensions[data.rooms[0].type] = { w, d };
-        }
-    }
-
-    // Format: "10 ga 12", "10 na 12"
-    const dimMatch2 = lower.match(/(\d+)\s*(?:ga|na)\s*(\d+)/);
-    if (!dimMatch && dimMatch2) {
-        const w = parseInt(dimMatch2[1]);
-        const d = parseInt(dimMatch2[2]);
-        if (data.rooms.length > 0) {
-            data.roomDimensions[data.rooms[0].type] = { w, d };
-        }
-    }
-
-    // Format: "120 m2"
-    const areaMatch = lower.match(/(\d+)\s*(?:m2|m²|kv\.?m|kvadrat metr)/);
-    if (areaMatch) {
-        const area = parseInt(areaMatch[1]);
-        const side = Math.sqrt(area);
-        if (data.rooms.length > 0) {
-            data.roomDimensions[data.rooms[0].type] = {
-                w: Math.round(side),
-                d: Math.round(side)
-            };
-        }
-    }
-
-    // ============ YORITISH (8-bosqich) ============
-    if (/(kechqurun|sunset|evening|quyosh botishi)/.test(lower)) {
-        data.lighting = 'sunset';
-    } else if (/(tun|night|kecha)/.test(lower)) {
-        data.lighting = 'night';
-    } else if (/(bulutli|cloudy|bulut)/.test(lower)) {
-        data.lighting = 'cloudy';
-    } else if (/(quyoshli|sunny|yorug|bright)/.test(lower)) {
-        data.lighting = 'sunny';
-    } else {
-        data.lighting = 'day';
-    }
-
-    // ============ RANDOM REJIM ============
-    if (/(tasodifiy|random|taxminiy)/.test(lower)) {
-        data.random = true;
-    }
+    if (/(tasodifiy|random|taxminiy)/.test(lower)) data.random = true;
 
     return data;
+}
+
+/**
+ * 7. Gemini API Integratsiyasi (Kolleksiya / Gibrid Rejim)
+ * Murakkab va uzun so'rovlar uchun Gemini API ishlatiladi, muammo bo'lsa parsePrompt()'ga tushadi.
+ */
+export async function parsePromptWithAI(text, apiKey) {
+    if (!apiKey) return parsePrompt(text);
+
+    const systemPrompt = `You are a 3D architecture layout parser. Convert human user text into structured JSON matching this interface:
+{
+  "floors": number,
+  "rooms": [{"type": "living" | "kitchen" | "bedroom" | "kids" | "bathroom" | "garage"}],
+  "furniture": [{"type": string, "position": [x, y, z]}],
+  "materials": {"wall": hexNumber, "floor": hexNumber, "roof": hexNumber},
+  "style": string,
+  "landscape": boolean,
+  "roof": boolean,
+  "windowsCount": number,
+  "doorsCount": number,
+  "lighting": "day" | "night" | "sunset" | "cloudy" | "sunny"
+}`;
+
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\nUser Input: "${text}"` }] }],
+                generationConfig: { responseMimeType: "application/json" }
+            })
+        });
+
+        const resData = await response.json();
+        const jsonText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
+        return JSON.parse(jsonText);
+    } catch (err) {
+        console.warn("AI parsing xatosi, regEx parserga o'tildi:", err);
+        return parsePrompt(text);
+    }
 }
