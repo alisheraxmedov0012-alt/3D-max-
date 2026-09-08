@@ -25,6 +25,44 @@ transformControls.addEventListener('dragging-changed', (event) => {
 });
 scene.add(transformControls);
 
+// ---------- Xotirani tozalash (Memory Disposal) ----------
+function disposeObject(obj) {
+    if (!obj) return;
+
+    if (obj.geometry) {
+        obj.geometry.dispose();
+    }
+
+    if (obj.material) {
+        if (Array.isArray(obj.material)) {
+            obj.material.forEach(mat => disposeMaterial(mat));
+        } else {
+            disposeMaterial(obj.material);
+        }
+    }
+}
+
+function disposeMaterial(mat) {
+    if (!mat) return;
+    mat.dispose();
+    // Material teksturalarini xotiradan o'chirish
+    for (const key of Object.keys(mat)) {
+        if (mat[key] && mat[key].isTexture) {
+            mat[key].dispose();
+        }
+    }
+}
+
+function disposeGroup(group) {
+    if (!group) return;
+    group.traverse((child) => {
+        if (child.isMesh) {
+            disposeObject(child);
+        }
+    });
+    scene.remove(group);
+}
+
 // ---------- Yordamchi funksiyalar ----------
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -34,7 +72,6 @@ function getRandomColor(list) {
     return list[getRandomInt(0, list.length - 1)];
 }
 
-// Tasodifiy uy ma'lumotlarini yaratish
 function createRandomHouseData() {
     const roomTypes = ['living', 'kitchen', 'bedroom', 'kids', 'bathroom', 'garage', 'corridor'];
     const rooms = [];
@@ -86,16 +123,14 @@ function createRandomHouseData() {
     const floorColors = [0x8a5a2b, 0x5c3a1a, 0x999999, 0xbb5533, 0x886633, 0xcccc99];
     const roofColors = [0xaa5555, 0x885533, 0x666666, 0x995544, 0x774433];
 
-    const materials = {
-        wall: getRandomColor(wallColors),
-        floor: getRandomColor(floorColors),
-        roof: getRandomColor(roofColors)
-    };
-
     return {
         rooms,
         furniture,
-        materials,
+        materials: {
+            wall: getRandomColor(wallColors),
+            floor: getRandomColor(floorColors),
+            roof: getRandomColor(roofColors)
+        },
         style: 'random',
         landscape: Math.random() > 0.4,
         roof: true,
@@ -110,7 +145,6 @@ function createRandomHouseData() {
     };
 }
 
-// Yuklanish ko'rsatkichi
 function showLoading() {
     if (!loadingIndicator) {
         loadingIndicator = document.createElement('div');
@@ -119,12 +153,15 @@ function showLoading() {
         loadingIndicator.style.top = '50%';
         loadingIndicator.style.left = '50%';
         loadingIndicator.style.transform = 'translate(-50%, -50%)';
-        loadingIndicator.style.background = 'rgba(0,0,0,0.7)';
-        loadingIndicator.style.color = 'white';
-        loadingIndicator.style.padding = '12px 24px';
-        loadingIndicator.style.borderRadius = '6px';
-        loadingIndicator.style.zIndex = '20';
-        loadingIndicator.textContent = 'Yaratilmoqda...';
+        loadingIndicator.style.background = 'rgba(0,0,0,0.85)';
+        loadingIndicator.style.color = '#fff';
+        loadingIndicator.style.padding = '14px 28px';
+        loadingIndicator.style.borderRadius = '8px';
+        loadingIndicator.style.fontFamily = 'sans-serif';
+        loadingIndicator.style.fontSize = '14px';
+        loadingIndicator.style.zIndex = '100';
+        loadingIndicator.style.pointerEvents = 'none';
+        loadingIndicator.textContent = '3D Sahna yaratilmoqda...';
         document.body.appendChild(loadingIndicator);
     }
     loadingIndicator.style.display = 'block';
@@ -134,8 +171,8 @@ function hideLoading() {
     if (loadingIndicator) loadingIndicator.style.display = 'none';
 }
 
-// Kamerani uyga moslashtirish
 function fitCameraToHouse(group) {
+    if (!group) return;
     const box = getHouseBoundingBox(group);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -148,94 +185,81 @@ function fitCameraToHouse(group) {
     controls.update();
 }
 
-// Statistika panelini yangilash
 function updateStats(data) {
     const statsDiv = document.getElementById('stats-content');
     if (!statsDiv) return;
 
     const roomNames = {
-        living: 'yashash xonasi',
-        kitchen: 'oshxona',
-        bedroom: 'yotoqxona',
-        kids: 'bolalar xonasi',
-        bathroom: 'hammom',
-        garage: 'garaj',
-        corridor: 'koridor'
+        living: 'yashash xonasi', kitchen: 'oshxona', bedroom: 'yotoqxona',
+        kids: 'bolalar xonasi', bathroom: 'hammom', garage: 'garaj', corridor: 'koridor'
     };
 
     const roomsList = data.rooms.map(r => roomNames[r.type] || r.type).join(', ');
-    const furnitureCount = data.rooms.reduce((sum, r) => {
-        return sum + (r.type === 'living' && data.furniture ? data.furniture.length : 0);
-    }, 0);
-    // Standart mebellar sonini hisoblash qiyin, shuning uchun umumiy mebel sonini beramiz
     const totalFurniture = data.furniture ? data.furniture.length : 0;
     const floors = data.floors || 1;
 
     const styleMap = {
-        modern: 'zamonaviy',
-        classic: 'klassik',
-        minimalist: 'minimalizm',
-        loft: 'loft',
-        scandinavian: 'skandinaviya',
-        rustic: 'rustik',
-        random: 'tasodifiy'
+        modern: 'zamonaviy', classic: 'klassik', minimalist: 'minimalizm',
+        loft: 'loft', scandinavian: 'skandinaviya', rustic: 'rustik', random: 'tasodifiy'
     };
 
     const lightingMap = {
-        day: 'kunduzgi',
-        sunny: 'quyoshli',
-        sunset: 'kechqurun',
-        night: 'tun',
-        cloudy: 'bulutli'
+        day: 'kunduzgi', sunny: 'quyoshli', sunset: 'kechqurun', night: 'tun', cloudy: 'bulutli'
     };
 
     statsDiv.innerHTML = `
-        Xonalar: ${data.rooms.length} (${roomsList || '—'})<br>
-        Qavatlar: ${floors}<br>
-        Mebellar: ${totalFurniture} (foydalanuvchi qo'shimchasi)<br>
-        Uslub: ${styleMap[data.style] || 'aniqlanmagan'}<br>
-        Yoritish: ${lightingMap[data.lighting] || 'kunduzgi'}<br>
-        Landshaft: ${data.landscape ? 'bor' : 'yo\'q'}<br>
-        Tom: ${data.roof ? 'bor' : 'yo\'q'}
+        <b>Xonalar:</b> ${data.rooms.length} (${roomsList || '—'})<br>
+        <b>Qavatlar:</b> ${floors}<br>
+        <b>Mebellar:</b> ${totalFurniture}<br>
+        <b>Uslub:</b> ${styleMap[data.style] || 'aniqlanmagan'}<br>
+        <b>Yoritish:</b> ${lightingMap[data.lighting] || 'kunduzgi'}<br>
+        <b>Landshaft:</b> ${data.landscape ? 'Bor' : 'Yo\'q'}<br>
+        <b>Tom:</b> ${data.roof ? 'Bor' : 'Yo\'q'}
     `;
 }
 
-// Sahna yaratish
-function generateHouse(prompt) {
+// ---------- Sahna Yaratish Pipeline (Async) ----------
+async function generateHouse(prompt) {
     if (!prompt) return;
 
     currentPrompt = prompt;
     localStorage.setItem('lastPrompt', prompt);
-
     showLoading();
 
-    setTimeout(() => {
+    // UI render bo'lishi uchun mikro kesilish
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    try {
         deselectObject();
 
+        // Eski xotirani to'liq tozalash
         if (houseGroup) {
-            scene.remove(houseGroup);
+            disposeGroup(houseGroup);
+            houseGroup = null;
         }
 
-        const parsed = parsePrompt(prompt);
+        const parsed = await parsePrompt(prompt);
         const data = parsed.random ? createRandomHouseData() : parsed;
 
-        // Rang palitrasidan kelgan override
         if (currentCustomColors.wall !== null) data.materials.wall = currentCustomColors.wall;
         if (currentCustomColors.floor !== null) data.materials.floor = currentCustomColors.floor;
         if (currentCustomColors.roof !== null) data.materials.roof = currentCustomColors.roof;
 
         setLightingPreset(data.lighting || 'day');
 
-        houseGroup = buildHouse(data);
+        houseGroup = await buildHouse(data);
         scene.add(houseGroup);
 
         fitCameraToHouse(houseGroup);
         updateStats(data);
+    } catch (error) {
+        console.error('Uy yaratishda xatolik yuz berdi:', error);
+    } finally {
         hideLoading();
-    }, 100);
+    }
 }
 
-// GLTF/GLB formatda yuklab olish
+// ---------- Eksport va Saqlash ----------
 function downloadGLB() {
     if (!houseGroup) {
         alert('Avval uy yarating!');
@@ -246,38 +270,39 @@ function downloadGLB() {
     exporter.parse(
         houseGroup,
         (result) => {
-            const blob = new Blob([result], { type: 'model/gltf-binary' });
+            const blob = new Blob([result], { type: 'application/octet-stream' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = 'house.glb';
+            link.download = `house_${Date.now()}.glb`;
             link.click();
             URL.revokeObjectURL(link.href);
         },
+        (error) => console.error('GLB eksport xatosi:', error),
         { binary: true }
     );
 }
 
-// Saqlash/Yuklash
 function saveProject() {
     if (!currentPrompt) {
         alert('Avval uy yarating!');
         return;
     }
     localStorage.setItem('savedPrompt', currentPrompt);
-    alert('Loyiha saqlandi!');
+    alert('Loyiha muvaffaqiyatli saqlandi!');
 }
 
 function loadProject() {
     const saved = localStorage.getItem('savedPrompt');
     if (saved) {
-        document.getElementById('prompt-input').value = saved;
+        const input = document.getElementById('prompt-input');
+        if (input) input.value = saved;
         generateHouse(saved);
     } else {
-        alert("Saqlangan loyiha yo'q");
+        alert("Saqlangan loyiha topilmadi.");
     }
 }
 
-// Tahrir funksiyalari
+// ---------- Tahrirlash va Raycasting ----------
 function selectObject(obj) {
     if (selectedObject === obj) return;
     deselectObject();
@@ -291,16 +316,22 @@ function deselectObject() {
 }
 
 function onPointerDown(event) {
-    if (!editMode || !houseGroup) return;
+    if (!editMode || !houseGroup || event.target !== renderer.domElement) return;
 
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(houseGroup.children, true);
 
     if (intersects.length > 0) {
-        selectObject(intersects[0].object);
+        let target = intersects[0].object;
+        // Agar guruh tarkibidagi obyekt bo'lsa, eng yuqori modulgacha chiqish
+        while (target.parent && target.parent !== houseGroup && !target.userData.isInteractable) {
+            target = target.parent;
+        }
+        selectObject(target);
     } else {
         deselectObject();
     }
@@ -310,14 +341,8 @@ function onKeyDown(event) {
     if ((event.key === 'Delete' || event.key === 'Backspace') && selectedObject) {
         const obj = selectedObject;
         deselectObject();
-
         if (obj.parent) obj.parent.remove(obj);
-
-        if (obj.geometry) obj.geometry.dispose();
-        if (obj.material) {
-            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
-            else obj.material.dispose();
-        }
+        disposeGroup(obj);
     }
 }
 
@@ -325,85 +350,87 @@ function toggleEditMode() {
     editMode = !editMode;
     if (!editMode) deselectObject();
     const btn = document.getElementById('edit-mode-btn');
-    btn.textContent = editMode ? '✏️ Tahrir rejimidan chiqish' : '✏️ Tahrir rejimi';
-    btn.classList.toggle('active', editMode);
+    if (btn) {
+        btn.textContent = editMode ? '✏️ Tahrir rejimidan chiqish' : '✏️ Tahrir rejimi';
+        btn.classList.toggle('active', editMode);
+    }
 }
 
-// Rang palitrasi funksiyalari
 function setupColorPalette() {
     const wallInput = document.getElementById('wall-color');
     const floorInput = document.getElementById('floor-color');
     const roofInput = document.getElementById('roof-color');
 
     function updateColors() {
-        currentCustomColors.wall = parseInt(wallInput.value.replace('#', ''), 16);
-        currentCustomColors.floor = parseInt(floorInput.value.replace('#', ''), 16);
-        currentCustomColors.roof = parseInt(roofInput.value.replace('#', ''), 16);
+        if (wallInput) currentCustomColors.wall = parseInt(wallInput.value.replace('#', ''), 16);
+        if (floorInput) currentCustomColors.floor = parseInt(floorInput.value.replace('#', ''), 16);
+        if (roofInput) currentCustomColors.roof = parseInt(roofInput.value.replace('#', ''), 16);
 
-        // Agar mavjud loyiha bo'lsa, qayta yaratamiz (ranglarni qo'llash uchun)
         if (currentPrompt && houseGroup) {
             generateHouse(currentPrompt);
         }
     }
 
-    wallInput.addEventListener('change', updateColors);
-    floorInput.addEventListener('change', updateColors);
-    roofInput.addEventListener('change', updateColors);
+    if (wallInput) wallInput.addEventListener('change', updateColors);
+    if (floorInput) floorInput.addEventListener('change', updateColors);
+    if (roofInput) roofInput.addEventListener('change', updateColors);
 }
 
-// Prompt misollari
 function setupPromptExamples() {
     document.querySelectorAll('.example-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const prompt = btn.dataset.prompt;
-            document.getElementById('prompt-input').value = prompt;
+            const input = document.getElementById('prompt-input');
+            if (input) input.value = prompt;
             generateHouse(prompt);
         });
     });
 }
 
-// ---------- Hodisalarni bog'lash ----------
-document.getElementById('generate-btn').addEventListener('click', () => {
-    const prompt = document.getElementById('prompt-input').value.trim();
+// ---------- Hodisalarni ulash ----------
+document.getElementById('generate-btn')?.addEventListener('click', () => {
+    const prompt = document.getElementById('prompt-input')?.value.trim();
     if (prompt) generateHouse(prompt);
 });
 
-document.getElementById('random-btn').addEventListener('click', () => {
+document.getElementById('random-btn')?.addEventListener('click', () => {
     generateHouse('tasodifiy uy');
 });
 
-document.getElementById('download-btn').addEventListener('click', downloadGLB);
-document.getElementById('edit-mode-btn').addEventListener('click', toggleEditMode);
-document.getElementById('save-btn').addEventListener('click', saveProject);
-document.getElementById('load-btn').addEventListener('click', loadProject);
+document.getElementById('download-btn')?.addEventListener('click', downloadGLB);
+document.getElementById('edit-mode-btn')?.addEventListener('click', toggleEditMode);
+document.getElementById('save-btn')?.addEventListener('click', saveProject);
+document.getElementById('load-btn')?.addEventListener('click', loadProject);
 
-window.addEventListener('pointerdown', onPointerDown);
+renderer.domElement.addEventListener('pointerdown', onPointerDown);
 window.addEventListener('keydown', onKeyDown);
 
-// Sahifa yuklanganda
+window.addEventListener('resize', () => {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+});
+
+// ---------- Dasturni ishga tushirish ----------
 window.addEventListener('load', () => {
     setupColorPalette();
     setupPromptExamples();
 
     const savedPrompt = localStorage.getItem('lastPrompt');
     if (savedPrompt) {
-        document.getElementById('prompt-input').value = savedPrompt;
+        const input = document.getElementById('prompt-input');
+        if (input) input.value = savedPrompt;
         generateHouse(savedPrompt);
     } else {
-        generateHouse("2 qavatli uy, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa, oq devor, yog'och pol, divan, stol, kamin, quyoshli");
+        generateHouse("2 qavatli zamonaviy uy, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa, oq devor, yog'och pol, divan, kamin");
     }
 });
 
-// Animatsiya
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
 }
 animate();
-
-window.addEventListener('resize', () => {
-    camera.aspect = container.clientWidth / container.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth, container.clientHeight);
-});
