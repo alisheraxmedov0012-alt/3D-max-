@@ -16,7 +16,8 @@ export function parsePrompt(text) {
         windowsCount: 0,
         doorsCount: 0,
         roomDimensions: {}, // {living: {w, d}, ...}
-        random: false
+        random: false,
+        lighting: 'day'     // 8-bosqichdagi yangi maydon
     };
 
     // ============ QAVATLAR SONI ============
@@ -24,10 +25,6 @@ export function parsePrompt(text) {
     if (floorMatch) data.floors = Math.max(1, parseInt(floorMatch[1]));
     if (lower.includes('two story') || lower.includes('two-storey')) data.floors = 2;
     if (lower.includes('three story') || lower.includes('three-storey')) data.floors = 3;
-
-    // ============ TO'G'RI VA O'ZBEK TILLARI UCHUN ============
-    const isUzbek = /[а-яА-ЯёЁқўғҳ]/.test(text); // kirill yoki lotin? Aslida lotin ishlatiladi
-    // Biz kalit so'zlarni ham o'zbek, ham ingliz tilida qo'shamiz
 
     // ============ XONA TURLARI ============
     const roomTypes = [
@@ -38,7 +35,7 @@ export function parsePrompt(text) {
         { keys: ['hammom', 'vannaxona', 'bathroom', 'toilet'], type: 'bathroom' },
         { keys: ['garaj', 'garage'], type: 'garage' },
         { keys: ['koridor', 'corridor', 'hallway', 'hall'], type: 'corridor' },
-        { keys: ['ofis', 'office'], type: 'living' } // office = living (xona sifatida)
+        { keys: ['ofis', 'office'], type: 'living' }
     ];
 
     roomTypes.forEach(rt => {
@@ -78,7 +75,6 @@ export function parsePrompt(text) {
     furnitureKeywords.forEach(fk => {
         const found = fk.keys.some(key => lower.includes(key));
         if (found) {
-            // Duplikatlarni oldini olish
             const exists = data.furniture.some(f => f.type === fk.type);
             if (!exists) data.furniture.push({ type: fk.type, position: fk.pos.slice() });
         }
@@ -90,12 +86,12 @@ export function parsePrompt(text) {
         { keys: ['qora', 'black'], hex: 0x111111 },
         { keys: ['qizil', 'red'], hex: 0xff3333 },
         { keys: ['yashil', 'green'], hex: 0x33aa33 },
-        { keys: ['ko\'k', 'ko\‘k', 'blue'], hex: 0x3344ff },
+        { keys: ["ko'k", 'ko‘k', 'blue'], hex: 0x3344ff },
         { keys: ['jigarrang', 'brown'], hex: 0x8b4513 },
         { keys: ['kulrang', 'gray', 'grey'], hex: 0x888888 },
         { keys: ['sariq', 'yellow'], hex: 0xffff33 },
         { keys: ['binafsha', 'purple', 'violet'], hex: 0x8833aa },
-        { keys: ['to\'q sariq', 'orange'], hex: 0xff8833 },
+        { keys: ["to'q sariq", 'orange'], hex: 0xff8833 },
         { keys: ['pushti', 'pink'], hex: 0xff88cc },
         { keys: ['bej', 'beige'], hex: 0xe0c0a0 }
     ];
@@ -104,39 +100,34 @@ export function parsePrompt(text) {
         ck.keys.forEach(key => {
             const idx = lower.indexOf(key);
             if (idx !== -1) {
-                // Rang qaysi elementga tegishli ekanligini aniqlash
                 const context = lower.slice(Math.max(0, idx - 20), idx + key.length + 20);
                 if (/devor|wall/.test(context)) data.materials.wall = ck.hex;
                 if (/pol|floor/.test(context)) data.materials.floor = ck.hex;
                 if (/tom|roof/.test(context)) data.materials.roof = ck.hex;
-                // Umumiy rang: agar joy ko'rsatilmagan bo'lsa, devorlarga beramiz
                 if (!data.materials.wall && !data.materials.floor && !data.materials.roof) {
-                    // "oq uy" => devor oq bo'ladi
                     data.materials.wall = ck.hex;
                 }
             }
         });
     });
 
-    // Materiallar
     const materialKeywords = [
-        { keys: ['yog\'och', 'wood', 'wooden'], color: 0x8a5a2b },
+        { keys: ["yog'och", 'wood', 'wooden'], color: 0x8a5a2b },
         { keys: ['marmar', 'marble'], color: 0xdddddd },
         { keys: ['beton', 'concrete'], color: 0x999999 },
         { keys: ['shisha', 'glass'], color: 0x88aacc },
         { keys: ['metall', 'metal'], color: 0x888888 },
-        { keys: ['g\'isht', 'brick'], color: 0xbb5533 },
+        { keys: ["g'isht", 'brick'], color: 0xbb5533 },
         { keys: ['tosh', 'stone'], color: 0x999999 }
     ];
 
     materialKeywords.forEach(mk => {
         const found = mk.keys.some(key => lower.includes(key));
         if (found) {
-            // Material so'zi qaysi elementga tegishli?
             if (lower.includes('pol') || lower.includes('floor')) data.materials.floor = mk.color;
             else if (lower.includes('devor') || lower.includes('wall')) data.materials.wall = mk.color;
             else if (lower.includes('tom') || lower.includes('roof')) data.materials.roof = mk.color;
-            else data.materials.floor = mk.color; // Standart pol
+            else data.materials.floor = mk.color;
         }
     });
 
@@ -158,41 +149,41 @@ export function parsePrompt(text) {
     data.hasWindows = /deraza|window/.test(lower);
     data.hasDoors = /eshik|door/.test(lower);
 
-    // Deraza va eshik sonlari (ixtiyoriy)
+    // Deraza soni (o'zbek)
     const windowsCountMatch = lower.match(/(\d+)\s*deraza/);
     if (windowsCountMatch) data.windowsCount = parseInt(windowsCountMatch[1]);
-    if (/window/.test(lower)) {
-        const englishCount = lower.match(/(\d+)\s*windows/);
-        if (englishCount) data.windowsCount = parseInt(englishCount[1]);
-    }
 
+    // Deraza soni (ingliz)
+    const englishWindowsCount = lower.match(/(\d+)\s*windows/);
+    if (englishWindowsCount) data.windowsCount = parseInt(englishWindowsCount[1]);
+
+    // Eshik soni (o'zbek)
     const doorsCountMatch = lower.match(/(\d+)\s*eshik/);
     if (doorsCountMatch) data.doorsCount = parseInt(doorsCountMatch[1]);
-    if (/door/.test(lower)) {
-        const englishCount = lower.match(/(\d+)\s*doors/);
-        if (englishCount) data.doorsCount = parseInt(englishCount[1]);
-    }
+
+    // Eshik soni (ingliz)
+    const englishDoorsCount = lower.match(/(\d+)\s*doors/);
+    if (englishDoorsCount) data.doorsCount = parseInt(englishDoorsCount[1]);
 
     // ============ LANDSCAFT VA TOM ============
-    if (/'maysa|hovli|daraxt|tree|garden|landscape|park/.test(lower)) {
+    if (/(maysa|hovli|daraxt|tree|garden|landscape|park)/.test(lower)) {
         data.landscape = true;
     }
-    if (/'tom|roof/.test(lower)) data.roof = true;
+    if (/(tom|roof)/.test(lower)) data.roof = true;
 
     // ============ O'LCHAMLAR (XONA O'LCHAMLARI) ============
-    // Format: "living 6x8", "6 ga 8", "10x12", shuningdek maydon "120 m²"
-    const dimensionRegex = /(\d+)\s*[x×*]\s*(\d+)/; // 6x8 yoki 6*8
+    // Format: "6x8", "6*8", "6×8"
+    const dimensionRegex = /(\d+)\s*[x×*]\s*(\d+)/;
     const dimMatch = lower.match(dimensionRegex);
     if (dimMatch) {
         const w = parseInt(dimMatch[1]);
         const d = parseInt(dimMatch[2]);
-        // Bu o'lcham birinchi xonaga tegishli deb hisoblaymiz
         if (data.rooms.length > 0) {
             data.roomDimensions[data.rooms[0].type] = { w, d };
         }
     }
 
-    // "10 ga 12" yoki "10 na 12"
+    // Format: "10 ga 12", "10 na 12"
     const dimMatch2 = lower.match(/(\d+)\s*(?:ga|na)\s*(\d+)/);
     if (!dimMatch && dimMatch2) {
         const w = parseInt(dimMatch2[1]);
@@ -202,23 +193,35 @@ export function parsePrompt(text) {
         }
     }
 
-    // Maydon (m2)
+    // Format: "120 m2"
     const areaMatch = lower.match(/(\d+)\s*(?:m2|m²|kv\.?m|kvadrat metr)/);
     if (areaMatch) {
         const area = parseInt(areaMatch[1]);
-        // Maydonni taqribiy ravishda birinchi xonaga beramiz (kvadrat shaklida)
         const side = Math.sqrt(area);
         if (data.rooms.length > 0) {
-            data.roomDimensions[data.rooms[0].type] = { w: Math.round(side), d: Math.round(side) };
+            data.roomDimensions[data.rooms[0].type] = {
+                w: Math.round(side),
+                d: Math.round(side)
+            };
         }
+    }
+
+    // ============ YORITISH (8-bosqich) ============
+    if (/(kechqurun|sunset|evening|quyosh botishi)/.test(lower)) {
+        data.lighting = 'sunset';
+    } else if (/(tun|night|kecha)/.test(lower)) {
+        data.lighting = 'night';
+    } else if (/(bulutli|cloudy|bulut)/.test(lower)) {
+        data.lighting = 'cloudy';
+    } else if (/(quyoshli|sunny|yorug|bright)/.test(lower)) {
+        data.lighting = 'sunny';
+    } else {
+        data.lighting = 'day';
     }
 
     // ============ RANDOM REJIM ============
     if (/(tasodifiy|random|taxminiy)/.test(lower)) {
         data.random = true;
-        // Random rejimda biz barcha parametrlarni tasodifiy tanlaymiz
-        // Bu parserda emas, roomBuilder da amalga oshiriladi yoki main.js da
-        // Hozircha bayroqni belgilab qo'yamiz
     }
 
     return data;
