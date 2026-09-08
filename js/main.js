@@ -6,7 +6,7 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 const container = document.getElementById('canvas-container');
-const { scene, camera, renderer, controls } = createScene(container);
+const { scene, camera, renderer, controls, setLightingPreset } = createScene(container);
 
 let houseGroup = null;
 let loadingIndicator = null;
@@ -108,7 +108,8 @@ function createRandomHouseData() {
         windowsCount: 0,
         doorsCount: 0,
         roomDimensions: {},
-        random: true
+        random: true,
+        lighting: 'day'        // yangi maydon
     };
 }
 
@@ -169,6 +170,9 @@ function generateHouse(prompt) {
         const parsed = parsePrompt(prompt);
         const data = parsed.random ? createRandomHouseData() : parsed;
 
+        // ===== 8-bosqich: Yoritish presetini qo'llash =====
+        setLightingPreset(data.lighting || 'day');
+
         houseGroup = buildHouse(data);
         scene.add(houseGroup);
 
@@ -215,7 +219,7 @@ function loadProject() {
         document.getElementById('prompt-input').value = saved;
         generateHouse(saved);
     } else {
-        alert('Saqlangan loyiha yo\'q');
+        alert("Saqlangan loyiha yo'q");
     }
 }
 
@@ -311,7 +315,7 @@ window.addEventListener('load', () => {
         document.getElementById('prompt-input').value = savedPrompt;
         generateHouse(savedPrompt);
     } else {
-        generateHouse("2 qavatli uy, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa, oq devor, yog'och pol, divan, stol, kamin");
+        generateHouse("2 qavatli uy, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa, oq devor, yog'och pol, divan, stol, kamin, quyoshli");
     }
 });
 
