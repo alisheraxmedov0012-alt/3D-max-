@@ -1,23 +1,62 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// Material yaratish yordamchisi
-export function createMaterial(color, opts = {}) {
-    const material = new THREE.MeshStandardMaterial({
-        color,
-        roughness: opts.roughness ?? 0.6,
-        metalness: opts.metalness ?? 0.1
-    });
-    if (opts.transparent) {
-        material.transparent = true;
-        material.opacity = opts.opacity ?? 0.5;
+// Texture va Model yuklovchilar
+const textureLoader = new THREE.TextureLoader();
+const gltfLoader = new GLTFLoader();
+
+// Tayyor GLTF 3D modellar registri (agar CDN yoki mahalliy URL bo'lsa)
+export const MODEL_REGISTRY = {
+    // Masalan: sofa: 'assets/models/sofa.glb'
+};
+
+// 1. PBR Material yaratish yordamchisi (Teksturalar bilan)
+export function createMaterial(colorOrOpts, opts = {}) {
+    let config = {};
+
+    if (typeof colorOrOpts === 'number' || typeof colorOrOpts === 'string' || colorOrOpts instanceof THREE.Color) {
+        config = { color: colorOrOpts, ...opts };
+    } else {
+        config = colorOrOpts || {};
     }
+
+    const matConfig = {
+        color: config.color ?? 0xffffff,
+        roughness: config.roughness ?? 0.6,
+        metalness: config.metalness ?? 0.1
+    };
+
+    if (config.map) matConfig.map = config.map;
+    if (config.normalMap) matConfig.normalMap = config.normalMap;
+    if (config.roughnessMap) matConfig.roughnessMap = config.roughnessMap;
+
+    const material = new THREE.MeshStandardMaterial(matConfig);
+
+    if (config.transparent) {
+        material.transparent = true;
+        material.opacity = config.opacity ?? 0.5;
+    }
+
+    // Tekstura takrorlanishini (Repeat/Tiling) sozlash
+    if (config.repeat && material.map) {
+        material.map.wrapS = THREE.RepeatWrapping;
+        material.map.wrapT = THREE.RepeatWrapping;
+        material.map.repeat.set(config.repeat[0], config.repeat[1]);
+
+        if (material.normalMap) {
+            material.normalMap.wrapS = THREE.RepeatWrapping;
+            material.normalMap.wrapT = THREE.RepeatWrapping;
+            material.normalMap.repeat.set(config.repeat[0], config.repeat[1]);
+        }
+    }
+
     return material;
 }
 
-// Asosiy quti yaratish
-export function createBox(width, height, depth, color, x = 0, y = 0, z = 0) {
+// 2. Asosiy Primitive Shapkalar
+export function createBox(width, height, depth, color, x = 0, y = 0, z = 0, opts = {}) {
     const geometry = new THREE.BoxGeometry(width, height, depth);
-    const material = createMaterial(color);
+    const material = createMaterial(color, opts);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
@@ -25,10 +64,9 @@ export function createBox(width, height, depth, color, x = 0, y = 0, z = 0) {
     return mesh;
 }
 
-// Silindr yaratish
-export function createCylinder(radiusTop, radiusBottom, height, color, x = 0, y = 0, z = 0) {
-    const geometry = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 16);
-    const material = createMaterial(color);
+export function createCylinder(radiusTop, radiusBottom, height, color, x = 0, y = 0, z = 0, opts = {}) {
+    const geometry = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, 24);
+    const material = createMaterial(color, opts);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
@@ -36,10 +74,9 @@ export function createCylinder(radiusTop, radiusBottom, height, color, x = 0, y 
     return mesh;
 }
 
-// Sfera yaratish
-export function createSphere(radius, color, x = 0, y = 0, z = 0) {
-    const geometry = new THREE.SphereGeometry(radius, 16, 16);
-    const material = createMaterial(color);
+export function createSphere(radius, color, x = 0, y = 0, z = 0, opts = {}) {
+    const geometry = new THREE.SphereGeometry(radius, 24, 24);
+    const material = createMaterial(color, opts);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(x, y, z);
     mesh.castShadow = true;
@@ -47,7 +84,7 @@ export function createSphere(radius, color, x = 0, y = 0, z = 0) {
     return mesh;
 }
 
-// Deraza ramkasi + shisha
+// 3. Deraza Ramkasi + Shisha
 export function createWindow(windowWidth, windowHeight, sillHeight, wallCenterX, wallCenterZ, wallRotationY) {
     const group = new THREE.Group();
     const frameThickness = 0.1;
@@ -60,148 +97,149 @@ export function createWindow(windowWidth, windowHeight, sillHeight, wallCenterX,
         createBox(windowWidth + frameThickness * 2, frameThickness, frameThickness, frameColor, 0, sillHeight + windowHeight, 0)
     ];
 
-    const glass = createBox(windowWidth, windowHeight, 0.05, 0x88aacc, 0, sillHeight + windowHeight / 2, 0);
-    glass.material.transparent = true;
-    glass.material.opacity = 0.3;
+    const glass = createBox(windowWidth, windowHeight, 0.04, 0x88aacc, 0, sillHeight + windowHeight / 2, 0, { transparent: true, opacity: 0.35, roughness: 0.1, metalness: 0.9 });
 
     group.add(...frameParts, glass);
     group.position.set(wallCenterX, 0, wallCenterZ);
     group.rotation.y = wallRotationY;
+    group.userData = { isInteractable: false, type: 'window' };
     return group;
 }
 
-// Eshik
+// 4. Eshik Moduli
 export function createDoor(doorWidth, doorHeight, wallCenterX, wallCenterZ, wallRotationY) {
     const group = new THREE.Group();
-    const door = createBox(doorWidth, doorHeight, 0.1, 0x663300, 0, doorHeight / 2, 0);
-    const handle = createBox(0.05, 0.2, 0.05, 0x333333, doorWidth / 2 - 0.1, doorHeight / 2 + 0.8, 0);
+    const door = createBox(doorWidth, doorHeight, 0.08, 0x5c3a1a, 0, doorHeight / 2, 0, { roughness: 0.7 });
+    const handle = createBox(0.04, 0.18, 0.08, 0x222222, doorWidth / 2 - 0.1, doorHeight / 2, 0, { metalness: 0.8, roughness: 0.2 });
+
     group.add(door, handle);
     group.position.set(wallCenterX, 0, wallCenterZ);
     group.rotation.y = wallRotationY;
+    group.userData = { isInteractable: true, type: 'door' };
     return group;
 }
 
-// Mebel yaratish (kengaytirilgan)
-export function createFurniture(type, position) {
-    const parts = [];
-    const [x, y, z] = position;
+// 5. Protsedural Mebel Yaratish (Fallback - Guruhlangan holda)
+export function createProceduralFurniture(type) {
+    const group = new THREE.Group();
+    group.userData = { type, isInteractable: true };
 
     switch (type) {
         case 'sofa':
-            parts.push(createBox(2, 0.5, 1, 0x336699, x, y, z));
-            parts.push(createBox(2, 0.8, 0.2, 0x336699, x, y + 0.65, z - 0.4));
-            parts.push(createBox(0.9, 0.4, 0.9, 0x4477aa, x, y + 0.45, z + 0.2));
+            group.add(
+                createBox(2, 0.4, 0.9, 0x2c3e50, 0, 0.2, 0),
+                createBox(2, 0.8, 0.2, 0x2c3e50, 0, 0.6, -0.35),
+                createBox(0.2, 0.5, 0.9, 0x1a252f, -0.9, 0.35, 0),
+                createBox(0.2, 0.5, 0.9, 0x1a252f, 0.9, 0.35, 0)
+            );
             break;
 
         case 'table':
-            parts.push(createBox(1.5, 0.05, 0.8, 0x8b5a2b, x, y + 0.25, z));
-            for (let dx of [-0.6, 0.6]) {
-                for (let dz of [-0.3, 0.3]) {
-                    parts.push(createBox(0.1, 0.5, 0.1, 0x5c3a1a, x + dx, y - 0.25, z + dz));
+            group.add(createBox(1.6, 0.06, 0.9, 0x8b5a2b, 0, 0.75, 0));
+            for (let dx of [-0.7, 0.7]) {
+                for (let dz of [-0.35, 0.35]) {
+                    group.add(createCylinder(0.04, 0.03, 0.72, 0x222222, dx, 0.36, dz));
                 }
             }
             break;
 
         case 'chair':
-            parts.push(createBox(0.5, 0.05, 0.5, 0x8b5a2b, x, y + 0.25, z));
-            parts.push(createBox(0.5, 0.4, 0.5, 0x5c3a1a, x, y - 0.25, z));
-            parts.push(createBox(0.5, 0.5, 0.05, 0x5c3a1a, x, y + 0.5, z - 0.2));
-            break;
-
-        case 'bed':
-            parts.push(createBox(1.6, 0.5, 2, 0x5c3a1a, x, y, z));
-            parts.push(createBox(1.6, 0.2, 2, 0xffffff, x, y + 0.35, z));
-            parts.push(createBox(0.6, 0.15, 0.5, 0xffffff, x, y + 0.5, z - 0.7));
-            break;
-
-        case 'wardrobe':
-            parts.push(createBox(1.5, 2.4, 0.6, 0x8b5a2b, x, y, z));
-            parts.push(createBox(0.03, 2.2, 0.03, 0x555555, x, y + 0.1, z + 0.31));
-            break;
-
-        case 'rug':
-            parts.push(createBox(2.5, 0.05, 1.8, 0xaa3333, x, y, z));
-            break;
-
-        case 'tv':
-            parts.push(createBox(1.2, 0.8, 0.1, 0x111111, x, y, z));
-            parts.push(createBox(0.4, 0.4, 0.3, 0x444444, x, y - 0.6, z + 0.05));
-            break;
-
-        case 'bookshelf':
-            parts.push(createBox(1.2, 2.2, 0.5, 0x8b5a2b, x, y, z));
-            for (let i = 0; i < 4; i++) {
-                parts.push(createBox(1.1, 0.05, 0.45, 0x5c3a1a, x, y - 0.8 + i * 0.55, z));
-            }
-            break;
-
-        case 'fridge':
-            parts.push(createBox(0.8, 1.8, 0.7, 0xcccccc, x, y, z));
-            parts.push(createBox(0.7, 0.8, 0.1, 0xdddddd, x, y + 0.5, z + 0.36));
-            parts.push(createBox(0.7, 0.5, 0.1, 0xdddddd, x, y - 0.4, z + 0.36));
-            break;
-
-        case 'fireplace':
-            parts.push(createBox(1.5, 0.8, 0.5, 0x663333, x, y, z));
-            parts.push(createBox(1.2, 0.5, 0.4, 0x333333, x, y + 0.4, z));
-            break;
-
-        case 'lamp':
-            parts.push(createCylinder(0.08, 0.08, 1.5, 0x888888, x, y + 0.75, z));
-            parts.push(createCylinder(0.3, 0.3, 0.2, 0xffcc44, x, y + 1.5, z));
-            break;
-
-        case 'painting':
-            parts.push(createBox(0.8, 0.6, 0.05, 0xaa8866, x, y, z));
-            parts.push(createBox(0.6, 0.4, 0.06, 0x336699, x, y, z));
-            break;
-
-        case 'cabinet':
-            parts.push(createBox(0.8, 0.9, 0.5, 0x8b5a2b, x, y, z));
-            parts.push(createBox(0.6, 0.6, 0.1, 0xcccccc, x, y + 0.15, z + 0.26));
-            break;
-
-        case 'sink':
-            parts.push(createBox(0.6, 0.2, 0.5, 0xffffff, x, y, z));
-            parts.push(createCylinder(0.15, 0.1, 0.1, 0xcccccc, x, y + 0.2, z));
-            break;
-
-        case 'toilet':
-            parts.push(createBox(0.4, 0.4, 0.5, 0xffffff, x, y, z));
-            parts.push(createCylinder(0.2, 0.2, 0.3, 0xffffff, x, y + 0.5, z - 0.15));
-            break;
-
-        case 'shower':
-            parts.push(createBox(0.8, 1.8, 0.8, 0x88aacc, x, y, z));
-            parts.push(createBox(0.7, 0.05, 0.7, 0xcccccc, x, y + 0.1, z));
-            break;
-
-        case 'car':
-            parts.push(createBox(1.8, 0.5, 3.5, 0xcc3333, x, y + 0.25, z));
-            parts.push(createBox(1.2, 0.4, 1.8, 0xcc3333, x, y + 0.7, z + 0.3));
-            for (let dx of [-0.7, 0.7]) {
-                for (let dz of [-1.3, 1.3]) {
-                    parts.push(createCylinder(0.25, 0.25, 0.2, 0x222222, x + dx, y, z + dz));
+            group.add(
+                createBox(0.45, 0.05, 0.45, 0x8b5a2b, 0, 0.45, 0),
+                createBox(0.45, 0.45, 0.04, 0x5c3a1a, 0, 0.7, -0.2)
+            );
+            for (let dx of [-0.18, 0.18]) {
+                for (let dz of [-0.18, 0.18]) {
+                    group.add(createCylinder(0.025, 0.02, 0.43, 0x222222, dx, 0.215, dz));
                 }
             }
             break;
+
+        case 'bed':
+            group.add(
+                createBox(1.6, 0.3, 2.0, 0x5c3a1a, 0, 0.15, 0),
+                createBox(1.5, 0.25, 1.9, 0xf5f5f5, 0, 0.35, 0.02),
+                createBox(1.6, 0.9, 0.1, 0x3d2314, 0, 0.45, -0.95),
+                createBox(0.6, 0.12, 0.4, 0xffffff, -0.35, 0.5, -0.65),
+                createBox(0.6, 0.12, 0.4, 0xffffff, 0.35, 0.5, -0.65)
+            );
+            break;
+
+        case 'wardrobe':
+            group.add(
+                createBox(1.4, 2.2, 0.6, 0x4a2e16, 0, 1.1, 0),
+                createBox(0.02, 0.3, 0.02, 0xd4af37, -0.05, 1.1, 0.31),
+                createBox(0.02, 0.3, 0.02, 0xd4af37, 0.05, 1.1, 0.31)
+            );
+            break;
+
+        case 'rug':
+            group.add(createBox(2.4, 0.02, 1.6, 0x8e24aa, 0, 0.01, 0, { roughness: 0.9 }));
+            break;
+
+        case 'tv':
+            group.add(
+                createBox(1.4, 0.8, 0.06, 0x111111, 0, 1.2, 0, { roughness: 0.2, metalness: 0.8 }),
+                createBox(0.4, 0.02, 0.3, 0x222222, 0, 0.75, 0),
+                createBox(0.08, 0.4, 0.08, 0x222222, 0, 0.95, 0),
+                createBox(1.6, 0.45, 0.4, 0x333333, 0, 0.225, 0)
+            );
+            break;
+
+        case 'lamp':
+            group.add(
+                createCylinder(0.2, 0.2, 0.03, 0x222222, 0, 0.015, 0),
+                createCylinder(0.02, 0.02, 1.4, 0xd4af37, 0, 0.7, 0, { metalness: 0.8 }),
+                createCylinder(0.25, 0.35, 0.35, 0xfff8e7, 0, 1.4, 0, { roughness: 0.3 })
+            );
+            break;
+
+        default:
+            // Noma'lum mebellar uchun standart kubik
+            group.add(createBox(0.8, 0.8, 0.8, 0x9e9e9e, 0, 0.4, 0));
+            break;
     }
 
-    return parts;
-}
-
-// Daraxt (yakka, odatda instancing da ishlatilmaydi, ammo saqlab qo'yamiz)
-export function createTree(x, z) {
-    const group = new THREE.Group();
-    const trunk = createCylinder(0.15, 0.2, 2, 0x664422, 0, 1, 0);
-    const canopy1 = createSphere(1.5, 0x33aa33, 0, 2.5, 0);
-    const canopy2 = createSphere(1, 0x44cc44, 0.8, 3.2, 0.3);
-    group.add(trunk, canopy1, canopy2);
-    group.position.set(x, 0, z);
     return group;
 }
 
-// To'g'ri to'rtburchak gable tom (ikki yonbag'irli)
+// 6. Asinxron GLTF / Protsedural Mebel Yuklovchi
+export async function loadFurnitureModel(type, position = [0, 0, 0]) {
+    const [x, y, z] = position;
+
+    // Agar model bazada bo'lsa, GLTF faylini yuklaymiz
+    if (MODEL_REGISTRY[type]) {
+        try {
+            const gltf = await gltfLoader.loadAsync(MODEL_REGISTRY[type]);
+            const model = gltf.scene;
+            model.position.set(x, y, z);
+            model.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+            model.userData = { type, isInteractable: true };
+            return model;
+        } catch (error) {
+            console.warn(`GLTF modelini yuklashda xatolik (${type}), protsedural modelga o'tiladi:`, error);
+        }
+    }
+
+    // Modellik mavjud bo'lmasa protsedural model yaratamiz
+    const furnitureGroup = createProceduralFurniture(type);
+    furnitureGroup.position.set(x, y, z);
+    return furnitureGroup;
+}
+
+// Sync versiya (eski kodlar bilan moslik uchun)
+export function createFurniture(type, position) {
+    const group = createProceduralFurniture(type);
+    group.position.set(position[0], position[1], position[2]);
+    return [group]; // Array shaklida qaytarish
+}
+
+// 7. Gable Roof (Ikki yonbag'irli tom)
 export function createGableRoof(width, depth, height, color) {
     const group = new THREE.Group();
 
@@ -211,10 +249,7 @@ export function createGableRoof(width, depth, height, color) {
     shape.lineTo(0, height);
     shape.closePath();
 
-    const extrudeSettings = {
-        depth: depth,
-        bevelEnabled: false
-    };
+    const extrudeSettings = { depth: depth, bevelEnabled: false };
     const roofGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
     roofGeometry.translate(0, 0, -depth / 2);
 
@@ -228,10 +263,11 @@ export function createGableRoof(width, depth, height, color) {
     const ridgeCap = createBox(0.2, 0.15, depth, color, 0, height, 0);
     group.add(ridgeCap);
 
+    group.userData = { isInteractable: false, type: 'roof' };
     return group;
 }
 
-// Zinapoya (oddiy pog'onalar)
+// 8. Zinapoya
 export function createStairs(width, depth, height, color = 0x8b5a2b, x = 0, y = 0, z = 0) {
     const group = new THREE.Group();
     const stepCount = 10;
@@ -239,30 +275,27 @@ export function createStairs(width, depth, height, color = 0x8b5a2b, x = 0, y = 
     const treadDepth = depth / stepCount;
 
     for (let i = 0; i < stepCount; i++) {
-        const step = createBox(width, stepHeight, treadDepth, color, 0, stepHeight * (i + 0.5), treadDepth * i + treadDepth / 2);
+        const step = createBox(
+            width, stepHeight, treadDepth, color,
+            0, stepHeight * (i + 0.5), treadDepth * i + treadDepth / 2
+        );
         group.add(step);
     }
 
     group.position.set(x, y, z);
+    group.userData = { isInteractable: false, type: 'stairs' };
     return group;
 }
 
-// Shift (qavatlar orasini yopish yoki shunchaki tekis sirt)
-export function createFloorSlab(width, depth, thickness, color, x = 0, y = 0, z = 0) {
-    return createBox(width, thickness, depth, color, x, y, z);
-}
-
-// ===== PERFORMANS: InstancedMesh yordamida ko'p daraxt yaratish =====
-// Bu funksiya bitta geometriya va bitta material bilan barcha daraxtlarni yaratadi.
-// Har bir daraxt joylashuvi matrix orqali beriladi -> xotira va draw-call soni keskin kamayadi.
-
+// 9. Instanced Trees (Yuqori unumdorlikdagi daraxtlar)
 export function createTreeInstances(positions) {
-    // past poligonli geometriyalar
+    if (!positions || positions.length === 0) return new THREE.Group();
+
     const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.2, 2, 8);
     const canopyGeometry = new THREE.SphereGeometry(1.5, 8, 8);
 
     const trunkMaterial = createMaterial(0x664422);
-    const canopyMaterial = createMaterial(0x33aa33);
+    const canopyMaterial = createMaterial(0x2e7d32, { roughness: 0.8 });
 
     const count = positions.length;
     const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, count);
@@ -271,12 +304,10 @@ export function createTreeInstances(positions) {
     const dummy = new THREE.Object3D();
 
     positions.forEach((pos, i) => {
-        // Magistral markazi y=1 (balandlik 2, poydevor 0, tepa 2)
         dummy.position.set(pos[0], 1.0, pos[1]);
         dummy.updateMatrix();
         trunks.setMatrixAt(i, dummy.matrix);
 
-        // Toj markazi y=2.5
         dummy.position.set(pos[0], 2.5, pos[1]);
         dummy.updateMatrix();
         canopies.setMatrixAt(i, dummy.matrix);
@@ -288,7 +319,6 @@ export function createTreeInstances(positions) {
     canopies.receiveShadow = true;
 
     const group = new THREE.Group();
-    group.add(trunks);
-    group.add(canopies);
+    group.add(trunks, canopies);
     return group;
 }
