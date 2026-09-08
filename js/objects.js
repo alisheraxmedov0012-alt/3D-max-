@@ -81,7 +81,7 @@ export function createDoor(doorWidth, doorHeight, wallCenterX, wallCenterZ, wall
     return group;
 }
 
-// Mebel yaratish (kengaytirilgan, yangi turlar bilan)
+// Mebel yaratish (kengaytirilgan)
 export function createFurniture(type, position) {
     const parts = [];
     const [x, y, z] = position;
@@ -156,13 +156,12 @@ export function createFurniture(type, position) {
             parts.push(createBox(0.6, 0.4, 0.06, 0x336699, x, y, z));
             break;
 
-        // --- YANGI TURLAR ---
-        case 'cabinet': // hammom va oshxona uchun shkaf
+        case 'cabinet':
             parts.push(createBox(0.8, 0.9, 0.5, 0x8b5a2b, x, y, z));
             parts.push(createBox(0.6, 0.6, 0.1, 0xcccccc, x, y + 0.15, z + 0.26));
             break;
 
-        case 'sink': // rakovina
+        case 'sink':
             parts.push(createBox(0.6, 0.2, 0.5, 0xffffff, x, y, z));
             parts.push(createCylinder(0.15, 0.1, 0.1, 0xcccccc, x, y + 0.2, z));
             break;
@@ -177,7 +176,7 @@ export function createFurniture(type, position) {
             parts.push(createBox(0.7, 0.05, 0.7, 0xcccccc, x, y + 0.1, z));
             break;
 
-        case 'car': // oddiy mashina
+        case 'car':
             parts.push(createBox(1.8, 0.5, 3.5, 0xcc3333, x, y + 0.25, z));
             parts.push(createBox(1.2, 0.4, 1.8, 0xcc3333, x, y + 0.7, z + 0.3));
             for (let dx of [-0.7, 0.7]) {
@@ -202,15 +201,34 @@ export function createTree(x, z) {
     return group;
 }
 
-// Tom (oddiy cho'qqi)
-export function createRoof(width, depth, height, color) {
+// To'g'ri to'rtburchak gable tom (ikki yonbag'irli)
+export function createGableRoof(width, depth, height, color) {
     const group = new THREE.Group();
-    const base = createBox(width, 0.2, depth, color, 0, height, 0);
-    group.add(base);
-    const slopeHeight = height * 0.6;
-    const slope = createCylinder(0, width / 2, slopeHeight, color, 0, height + slopeHeight / 2, 0);
-    slope.rotation.z = 0;
-    slope.scale.set(1, 1, depth / width);
-    group.add(slope);
+
+    // Uchburchak kesim
+    const shape = new THREE.Shape();
+    shape.moveTo(-width / 2, 0);
+    shape.lineTo(width / 2, 0);
+    shape.lineTo(0, height);
+    shape.closePath();
+
+    const extrudeSettings = {
+        depth: depth,
+        bevelEnabled: false
+    };
+    const roofGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    roofGeometry.translate(0, 0, -depth / 2);
+
+    const roofMaterial = createMaterial(color, { roughness: 0.4 });
+    const roofMesh = new THREE.Mesh(roofGeometry, roofMaterial);
+    roofMesh.castShadow = true;
+    roofMesh.receiveShadow = true;
+
+    group.add(roofMesh);
+
+    // Tom tizmasi (ridge cap)
+    const ridgeCap = createBox(0.2, 0.15, depth, color, 0, height, 0);
+    group.add(ridgeCap);
+
     return group;
 }
