@@ -190,7 +190,7 @@ export function createFurniture(type, position) {
     return parts;
 }
 
-// Daraxt
+// Daraxt (yakka, odatda instancing da ishlatilmaydi, ammo saqlab qo'yamiz)
 export function createTree(x, z) {
     const group = new THREE.Group();
     const trunk = createCylinder(0.15, 0.2, 2, 0x664422, 0, 1, 0);
@@ -250,4 +250,45 @@ export function createStairs(width, depth, height, color = 0x8b5a2b, x = 0, y = 
 // Shift (qavatlar orasini yopish yoki shunchaki tekis sirt)
 export function createFloorSlab(width, depth, thickness, color, x = 0, y = 0, z = 0) {
     return createBox(width, thickness, depth, color, x, y, z);
+}
+
+// ===== PERFORMANS: InstancedMesh yordamida ko'p daraxt yaratish =====
+// Bu funksiya bitta geometriya va bitta material bilan barcha daraxtlarni yaratadi.
+// Har bir daraxt joylashuvi matrix orqali beriladi -> xotira va draw-call soni keskin kamayadi.
+
+export function createTreeInstances(positions) {
+    // past poligonli geometriyalar
+    const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.2, 2, 8);
+    const canopyGeometry = new THREE.SphereGeometry(1.5, 8, 8);
+
+    const trunkMaterial = createMaterial(0x664422);
+    const canopyMaterial = createMaterial(0x33aa33);
+
+    const count = positions.length;
+    const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, count);
+    const canopies = new THREE.InstancedMesh(canopyGeometry, canopyMaterial, count);
+
+    const dummy = new THREE.Object3D();
+
+    positions.forEach((pos, i) => {
+        // Magistral markazi y=1 (balandlik 2, poydevor 0, tepa 2)
+        dummy.position.set(pos[0], 1.0, pos[1]);
+        dummy.updateMatrix();
+        trunks.setMatrixAt(i, dummy.matrix);
+
+        // Toj markazi y=2.5
+        dummy.position.set(pos[0], 2.5, pos[1]);
+        dummy.updateMatrix();
+        canopies.setMatrixAt(i, dummy.matrix);
+    });
+
+    trunks.castShadow = true;
+    trunks.receiveShadow = true;
+    canopies.castShadow = true;
+    canopies.receiveShadow = true;
+
+    const group = new THREE.Group();
+    group.add(trunks);
+    group.add(canopies);
+    return group;
 }
