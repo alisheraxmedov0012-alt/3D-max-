@@ -1,5 +1,13 @@
 import * as THREE from 'three';
-import { createBox, createMaterial, createWindow, createDoor, createFurniture, createTree, createRoof } from './objects.js';
+import {
+    createBox,
+    createMaterial,
+    createWindow,
+    createDoor,
+    createFurniture,
+    createTree,
+    createGableRoof
+} from './objects.js';
 
 // Devorni teshiklar bilan qurish
 function createWallWithOpenings(wallLength, wallHeight, openings, position, rotationY, wallColor = 0xcccccc) {
@@ -88,10 +96,10 @@ function createWallWithOpenings(wallLength, wallHeight, openings, position, rota
     return group;
 }
 
-// Xona turiga mos standart mebellarni qaytaradi
+// Xona turiga mos standart mebellar
 function getDefaultFurniture(roomType) {
     const furniture = [];
-    // Har bir mebel uchun joylashuv koordinatalari (xona markaziga nisbatan)
+
     switch (roomType) {
         case 'living':
             furniture.push({ type: 'sofa', position: [1.5, 0.5, 1.5] });
@@ -139,6 +147,7 @@ function getDefaultFurniture(roomType) {
             furniture.push({ type: 'painting', position: [0, 1.6, -2.9] });
             break;
     }
+
     return furniture;
 }
 
@@ -164,7 +173,7 @@ function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture, mater
 
     // Xonaga mos standart mebellarni qo'shish
     const defaultFurniture = getDefaultFurniture(roomType);
-    const allFurniture = [...defaultFurniture, ...furniture]; // tashqaridan kelgan (foydalanuvchi so'ragan) mebellar oxirida
+    const allFurniture = [...defaultFurniture, ...furniture];
 
     allFurniture.forEach(item => {
         const parts = createFurniture(item.type, item.position);
@@ -184,8 +193,10 @@ function getDefaultOpenings(roomType, hasWindows, hasDoors) {
         openings.left.push({ type: 'window', width: 1.2, height: 1.2, distanceFromStart: 2, sillHeight: 0.8 });
         openings.right.push({ type: 'window', width: 1.2, height: 1.2, distanceFromStart: 2, sillHeight: 0.8 });
     }
+
     if (hasDoors) {
         openings.front.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: 4.5, sillHeight: 0 });
+
         // Ichki eshiklar: xonalar orasida
         if (roomType !== 'living') {
             openings.back.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: 0.5, sillHeight: 0 });
@@ -214,7 +225,7 @@ export function buildHouse(data) {
     const totalWidth = rooms.reduce((sum, r) => sum + roomSize[r.type].w + spacing, -spacing);
     let cursorX = -totalWidth / 2;
 
-    // Biz foydalanuvchi so'ragan qo'shimcha mebellarni faqat birinchi (asosiy) xonaga qo'shamiz
+    // Foydalanuvchi so'ragan qo'shimcha mebellarni faqat birinchi xonaga qo'shamiz
     const extraFurniture = data.furniture;
 
     rooms.forEach((room, index) => {
@@ -239,7 +250,7 @@ export function buildHouse(data) {
         // Tom qo'shish (agar so'ralsa)
         if (data.roof) {
             const roofColor = data.materials.roof || 0xaa5555;
-            const roofMesh = createRoof(size.w, size.d, 1.5, roofColor);
+            const roofMesh = createGableRoof(size.w, size.d, 1.5, roofColor);
             roofMesh.position.set(roomGroup.position.x, wallHeight, 0);
             group.add(roofMesh);
         }
@@ -277,4 +288,5 @@ export function buildHouse(data) {
 export function getHouseBoundingBox(houseGroup) {
     const box = new THREE.Box3().setFromObject(houseGroup);
     return box;
-                   }
+                           }
+                         
