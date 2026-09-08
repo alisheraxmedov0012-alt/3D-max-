@@ -34,17 +34,35 @@ body {
 }
 
 #ui button {
-    padding: 8px 16px;
+    padding: 8px 12px;
     background: #007bff;
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
     font-size: 14px;
+    margin-right: 5px;
+    margin-bottom: 5px;
 }
 
 #ui button:hover {
     background: #0056b3;
+}
+
+#ui #random-btn {
+    background: #ff8833;
+}
+
+#ui #random-btn:hover {
+    background: #cc6633;
+}
+
+#ui #download-btn {
+    background: #33aa33;
+}
+
+#ui #download-btn:hover {
+    background: #228822;
 }
 
 #ui small {
