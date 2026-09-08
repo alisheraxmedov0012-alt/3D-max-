@@ -205,7 +205,6 @@ export function createTree(x, z) {
 export function createGableRoof(width, depth, height, color) {
     const group = new THREE.Group();
 
-    // Uchburchak kesim
     const shape = new THREE.Shape();
     shape.moveTo(-width / 2, 0);
     shape.lineTo(width / 2, 0);
@@ -226,9 +225,29 @@ export function createGableRoof(width, depth, height, color) {
 
     group.add(roofMesh);
 
-    // Tom tizmasi (ridge cap)
     const ridgeCap = createBox(0.2, 0.15, depth, color, 0, height, 0);
     group.add(ridgeCap);
 
     return group;
+}
+
+// Zinapoya (oddiy pog'onalar)
+export function createStairs(width, depth, height, color = 0x8b5a2b, x = 0, y = 0, z = 0) {
+    const group = new THREE.Group();
+    const stepCount = 10;
+    const stepHeight = height / stepCount;
+    const treadDepth = depth / stepCount;
+
+    for (let i = 0; i < stepCount; i++) {
+        const step = createBox(width, stepHeight, treadDepth, color, 0, stepHeight * (i + 0.5), treadDepth * i + treadDepth / 2);
+        group.add(step);
+    }
+
+    group.position.set(x, y, z);
+    return group;
+}
+
+// Shift (qavatlar orasini yopish yoki shunchaki tekis sirt)
+export function createFloorSlab(width, depth, thickness, color, x = 0, y = 0, z = 0) {
+    return createBox(width, thickness, depth, color, x, y, z);
 }
