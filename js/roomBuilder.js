@@ -6,7 +6,9 @@ import {
     createDoor,
     createFurniture,
     createTree,
-    createGableRoof
+    createGableRoof,
+    createStairs,
+    createFloorSlab
 } from './objects.js';
 
 // Devorni teshiklar bilan qurish
@@ -151,7 +153,7 @@ function getDefaultFurniture(roomType) {
     return furniture;
 }
 
-// Xona yaratish (materiallar, xonaga mos mebellar)
+// Xona yaratish (materiallar, xonaga mos mebellar, shift bilan)
 function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture, materials = {}, roomType = 'living') {
     const group = new THREE.Group();
 
@@ -159,8 +161,12 @@ function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture, mater
     const floorColor = materials.floor || 0x8a5a2b;
 
     // Pol
-    const floor = createBox(roomWidth, 0.2, roomDepth, floorColor, 0, -0.1, 0);
+    const floor = createFloorSlab(roomWidth, 0.2, roomDepth, floorColor, 0, -0.1, 0);
     group.add(floor);
+
+    // Shift (qavatlar orasini yopish yoki xona shifti)
+    const ceiling = createFloorSlab(roomWidth, 0.2, roomDepth, wallColor, 0, wallHeight + 0.1, 0);
+    group.add(ceiling);
 
     const halfW = roomWidth / 2;
     const halfD = roomDepth / 2;
@@ -206,10 +212,54 @@ function getDefaultOpenings(roomType, hasWindows, hasDoors) {
     return openings;
 }
 
-// Butun uyni qurish
+// Bir qavatdagi barcha xonalarni ketma-ket joylashtirish
+function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, materials, hasWindows, hasDoors, dataRoof) {
+    const group = new THREE.Group();
+    const roomSize = {
+        living: { w: 6, d: 6 },
+        kitchen: { w: 4, d: 4 },
+        bedroom: { w: 4, d: 4 },
+        kids: { w: 4, d: 4 },
+        bathroom: { w: 3, d: 3 },
+        garage: { w: 4, d: 5 },
+        corridor: { w: 2, d: 6 }
+    };
+
+    const totalWidth = roomList.reduce((sum, r) => sum + roomSize[r.type].w + spacing, -spacing);
+    let cursorX = -totalWidth / 2;
+
+    roomList.forEach((room, index) => {
+        const size = roomSize[room.type] || roomSize.living;
+        const openings = getDefaultOpenings(room.type, hasWindows, hasDoors);
+
+        // Birinchi qavatdagi birinchi xonaga qo'shimcha mebel qo'shamiz
+        const roomExtraFurniture = index === 0 ? extraFurniture : [];
+
+        const roomGroup = createRoom(
+            size.w,
+            size.d,
+            wallHeight,
+            openings,
+            roomExtraFurniture,
+            materials,
+            room.type
+        );
+        roomGroup.position.x = cursorX + size.w / 2;
+        group.add(roomGroup);
+
+        // Tom qo'shish (faqat eng yuqori qavatda, shuning uchun buildHouse da qavatga qarab)
+        cursorX += size.w + spacing;
+    });
+
+    return group;
+}
+
+// Butun uyni qurish (ko'p qavatli)
 export function buildHouse(data) {
     const group = new THREE.Group();
     const wallHeight = 3;
+    const floorThickness = 0.2;
+    const spacing = 0.3;
     const roomSize = {
         living: { w: 6, d: 6 },
         kitchen: { w: 4, d: 4 },
@@ -221,48 +271,65 @@ export function buildHouse(data) {
     };
 
     const rooms = data.rooms;
-    const spacing = 0.3;
-    const totalWidth = rooms.reduce((sum, r) => sum + roomSize[r.type].w + spacing, -spacing);
-    let cursorX = -totalWidth / 2;
+    const floors = Math.max(1, data.floors || 1);
 
-    // Foydalanuvchi so'ragan qo'shimcha mebellarni faqat birinchi xonaga qo'shamiz
+    // Xonalar soni kam bo'lsa, qavatlarni moslashtiramiz
+    const effectiveFloors = Math.min(floors, rooms.length || 1);
+    const roomsPerFloor = Math.ceil(rooms.length / effectiveFloors);
+
     const extraFurniture = data.furniture;
 
-    rooms.forEach((room, index) => {
-        const size = roomSize[room.type] || roomSize.living;
-        const openings = getDefaultOpenings(room.type, data.hasWindows, data.hasDoors);
+    // Har bir qavat uchun xonalar massivini yaratamiz
+    for (let f = 0; f < effectiveFloors; f++) {
+        const startIdx = f * roomsPerFloor;
+        const endIdx = Math.min(startIdx + roomsPerFloor, rooms.length);
+        const floorRooms = rooms.slice(startIdx, endIdx);
 
-        // Birinchi xonaga qo'shimcha mebel qo'shiladi
-        const roomExtraFurniture = index === 0 ? extraFurniture : [];
+        // Agar bu qavatda xona bo'lmasa, oldingi qavatdan bitta xonani takrorlash yoki to'xtatish
+        if (floorRooms.length === 0) continue;
 
-        const roomGroup = createRoom(
-            size.w,
-            size.d,
+        const yOffset = f * (wallHeight + floorThickness);
+
+        const floorGroup = createFloorLevel(
+            floorRooms,
+            spacing,
             wallHeight,
-            openings,
-            roomExtraFurniture,
+            extraFurniture,
             data.materials,
-            room.type
+            data.hasWindows,
+            data.hasDoors,
+            data.roof
         );
-        roomGroup.position.x = cursorX + size.w / 2;
-        group.add(roomGroup);
+        floorGroup.position.y = yOffset;
+        group.add(floorGroup);
 
-        // Tom qo'shish (agar so'ralsa)
-        if (data.roof) {
+        // Tom faqat eng yuqori qavatda qo'shiladi
+        if (data.roof && f === effectiveFloors - 1) {
+            // Tomni butun qavatga emas, har bir xonaga alohida (hozircha tom birinchi xona uchun)
+            const firstRoom = floorRooms[0];
+            const size = roomSize[firstRoom.type] || roomSize.living;
             const roofColor = data.materials.roof || 0xaa5555;
             const roofMesh = createGableRoof(size.w, size.d, 1.5, roofColor);
-            roofMesh.position.set(roomGroup.position.x, wallHeight, 0);
+            roofMesh.position.set(floorGroup.position.x + (floorGroup.children[0]?.position.x || 0), yOffset + wallHeight, 0);
             group.add(roofMesh);
         }
+    }
 
-        cursorX += size.w + spacing;
-    });
+    // Zinapoya qo'shish (agar birdan ortiq qavat bo'lsa)
+    if (effectiveFloors > 1) {
+        const stairsWidth = 1.2;
+        const stairsDepth = 2.5;
+        const stairsHeight = wallHeight;
+        const stairs = createStairs(stairsWidth, stairsDepth, stairsHeight, 0x8b5a2b, -2.5, 0.1, -2.5);
+        group.add(stairs);
+    }
 
     // Landshaft
     if (data.landscape) {
+        const totalWidth = rooms.reduce((sum, r) => sum + roomSize[r.type].w + spacing, -spacing);
         const groundWidth = totalWidth + 10;
         const groundDepth = 10;
-        const ground = createBox(groundWidth, 0.1, groundDepth, 0x77aa55, 0, -0.3, 0);
+        const ground = createFloorSlab(groundWidth, 0.1, groundDepth, 0x77aa55, 0, -0.3, 0);
         group.add(ground);
 
         const treePositions = [
@@ -288,5 +355,5 @@ export function buildHouse(data) {
 export function getHouseBoundingBox(houseGroup) {
     const box = new THREE.Box3().setFromObject(houseGroup);
     return box;
-                           }
-                         
+}
+    
