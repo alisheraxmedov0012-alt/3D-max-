@@ -3,12 +3,27 @@ import { parsePrompt } from './parser.js';
 import { buildHouse, getHouseBoundingBox } from './roomBuilder.js';
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 const container = document.getElementById('canvas-container');
 const { scene, camera, renderer, controls } = createScene(container);
 
 let houseGroup = null;
 let loadingIndicator = null;
+let currentPrompt = '';
+
+// ---------- Tahrir rejimi o'zgaruvchilari ----------
+let editMode = false;
+let selectedObject = null;
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+// TransformControls yaratish
+const transformControls = new TransformControls(camera, renderer.domElement);
+transformControls.addEventListener('dragging-changed', (event) => {
+    controls.enabled = !event.value;
+});
+scene.add(transformControls);
 
 // ---------- Yordamchi funksiyalar ----------
 function getRandomInt(min, max) {
@@ -25,7 +40,7 @@ function createRandomHouseData() {
     const rooms = [];
     const roomCount = getRandomInt(2, 5);
 
-    // Xonalarni tanlash (birinchi xona living bo'lishi kerak)
+    // Birinchi xona living bo'lishi kerak
     rooms.push({ type: 'living' });
     const available = roomTypes.filter(t => t !== 'living');
     for (let i = 1; i < roomCount; i++) {
@@ -59,7 +74,6 @@ function createRandomHouseData() {
         'car': [0, 0.25, 0]
     };
 
-    // 3-6 ta mebel tanlaymiz
     const furnitureCount = getRandomInt(3, 6);
     const shuffledFurniture = [...furnitureTypes].sort(() => Math.random() - 0.5);
     const furniture = [];
@@ -138,15 +152,21 @@ function fitCameraToHouse(group) {
 
 // Sahna yaratish
 function generateHouse(prompt) {
+    if (!prompt) return;
+
+    currentPrompt = prompt;
+    localStorage.setItem('lastPrompt', prompt); // avtomatik saqlash
+
     showLoading();
 
     setTimeout(() => {
+        deselectObject();
+
         if (houseGroup) {
             scene.remove(houseGroup);
         }
 
         const parsed = parsePrompt(prompt);
-        // Agar promptda "tasodifiy" bo'lsa, tasodifiy ma'lumotlardan foydalanamiz
         const data = parsed.random ? createRandomHouseData() : parsed;
 
         houseGroup = buildHouse(data);
@@ -179,7 +199,90 @@ function downloadGLB() {
     );
 }
 
-// ---------- Tugmalar ----------
+// ---------- Saqlash/Yuklash funksiyalari ----------
+function saveProject() {
+    if (!currentPrompt) {
+        alert('Avval uy yarating!');
+        return;
+    }
+    localStorage.setItem('savedPrompt', currentPrompt);
+    alert('Loyiha saqlandi!');
+}
+
+function loadProject() {
+    const saved = localStorage.getItem('savedPrompt');
+    if (saved) {
+        document.getElementById('prompt-input').value = saved;
+        generateHouse(saved);
+    } else {
+        alert('Saqlangan loyiha yo\'q');
+    }
+}
+
+// ---------- Tahrir funksiyalari ----------
+function selectObject(obj) {
+    if (selectedObject === obj) return;
+    deselectObject();
+    selectedObject = obj;
+    transformControls.attach(obj);
+}
+
+function deselectObject() {
+    transformControls.detach();
+    selectedObject = null;
+}
+
+// Sichqoncha bosilganda obyektni tanlash
+function onPointerDown(event) {
+    if (!editMode || !houseGroup) return;
+
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(houseGroup.children, true);
+
+    if (intersects.length > 0) {
+        const obj = intersects[0].object;
+        selectObject(obj);
+    } else {
+        deselectObject();
+    }
+}
+
+// Delete tugmasi bilan ob'ektni o'chirish
+function onKeyDown(event) {
+    if ((event.key === 'Delete' || event.key === 'Backspace') && selectedObject) {
+        const obj = selectedObject;
+        deselectObject();
+
+        if (obj.parent) {
+            obj.parent.remove(obj);
+        }
+
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+            if (Array.isArray(obj.material)) {
+                obj.material.forEach(m => m.dispose());
+            } else {
+                obj.material.dispose();
+            }
+        }
+    }
+}
+
+// Tahrir rejimini o'zgartirish
+function toggleEditMode() {
+    editMode = !editMode;
+    if (!editMode) {
+        deselectObject();
+    }
+    const btn = document.getElementById('edit-mode-btn');
+    btn.textContent = editMode ? '✏️ Tahrir rejimidan chiqish' : '✏️ Tahrir rejimi';
+    btn.classList.toggle('active', editMode);
+}
+
+// ---------- Hodisalarni bog'lash ----------
 document.getElementById('generate-btn').addEventListener('click', () => {
     const prompt = document.getElementById('prompt-input').value.trim();
     if (prompt) {
@@ -193,8 +296,24 @@ document.getElementById('random-btn').addEventListener('click', () => {
 
 document.getElementById('download-btn').addEventListener('click', downloadGLB);
 
-// Boshlang'ich sahna
-generateHouse("2 qavatli uy, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa, oq devor, yog'och pol, divan, stol, kamin");
+document.getElementById('edit-mode-btn').addEventListener('click', toggleEditMode);
+
+document.getElementById('save-btn').addEventListener('click', saveProject);
+document.getElementById('load-btn').addEventListener('click', loadProject);
+
+window.addEventListener('pointerdown', onPointerDown);
+window.addEventListener('keydown', onKeyDown);
+
+// ---------- Sahifa yuklanganda avtomatik tiklash ----------
+window.addEventListener('load', () => {
+    const savedPrompt = localStorage.getItem('lastPrompt');
+    if (savedPrompt) {
+        document.getElementById('prompt-input').value = savedPrompt;
+        generateHouse(savedPrompt);
+    } else {
+        generateHouse("2 qavatli uy, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa, oq devor, yog'och pol, divan, stol, kamin");
+    }
+});
 
 // Animatsiya
 function animate() {
