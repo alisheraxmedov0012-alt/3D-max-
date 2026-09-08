@@ -24,8 +24,31 @@
         <button id="edit-mode-btn">✏️ Tahrir rejimi</button>
         <button id="save-btn">🔒 Saqlash</button>
         <button id="load-btn">📂 Yuklash</button>
+
+        <!-- Rang palitrasi -->
+        <div id="color-palette">
+            <label>Devor: <input type="color" id="wall-color" value="#cccccc"></label>
+            <label>Pol: <input type="color" id="floor-color" value="#8a5a2b"></label>
+            <label>Tom: <input type="color" id="roof-color" value="#aa5555"></label>
+        </div>
+
+        <!-- Prompt misollari -->
+        <div id="prompt-examples">
+            <button class="example-btn" data-prompt="1 xonali uy, divan, stol, deraza, oq devor">1 xonali uy</button>
+            <button class="example-btn" data-prompt="2 qavatli uy, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa">2 qavatli uy</button>
+            <button class="example-btn" data-prompt="zamonaviy ofis, stol, kreslo, shkaf, katta derazalar, marmar pol">Ofis</button>
+            <button class="example-btn" data-prompt="hammom, dush, unitaz, rakovina, oq devor, kulrang pol">Hammom</button>
+        </div>
+
+        <!-- Statistika paneli -->
+        <div id="stats">
+            <strong>Statistika:</strong>
+            <div id="stats-content">Hali loyiha yaratilmagan.</div>
+        </div>
+
         <p><small>
-            Saqlash tugmasi orqali loyihani saqlang. Sahifa yuklanganda oxirgi loyiha avtomatik tiklanadi.
+            Promptda xona turlari, mebellar, ranglar, o'lchamlar va yoritishni ko'rsating.
+            Rang palitrasi orqali devor/pol/tom rangini belgilang.
         </small></p>
     </div>
     <div id="canvas-container"></div>
