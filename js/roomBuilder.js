@@ -5,7 +5,7 @@ import {
     createWindow,
     createDoor,
     createFurniture,
-    createTree,
+    createTreeInstances,
     createGableRoof,
     createStairs,
     createFloorSlab
@@ -164,7 +164,7 @@ function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture, mater
     const floor = createFloorSlab(roomWidth, 0.2, roomDepth, floorColor, 0, -0.1, 0);
     group.add(floor);
 
-    // Shift (qavatlar orasini yopish yoki xona shifti)
+    // Shift
     const ceiling = createFloorSlab(roomWidth, 0.2, roomDepth, wallColor, 0, wallHeight + 0.1, 0);
     group.add(ceiling);
 
@@ -177,7 +177,7 @@ function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture, mater
     group.add(createWallWithOpenings(roomDepth, wallHeight, openings.left || [], { x: -halfW, z: 0 }, -Math.PI / 2, wallColor));
     group.add(createWallWithOpenings(roomDepth, wallHeight, openings.right || [], { x: halfW, z: 0 }, Math.PI / 2, wallColor));
 
-    // Xonaga mos standart mebellarni qo'shish
+    // Mebel
     const defaultFurniture = getDefaultFurniture(roomType);
     const allFurniture = [...defaultFurniture, ...furniture];
 
@@ -203,7 +203,6 @@ function getDefaultOpenings(roomType, hasWindows, hasDoors) {
     if (hasDoors) {
         openings.front.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: 4.5, sillHeight: 0 });
 
-        // Ichki eshiklar: xonalar orasida
         if (roomType !== 'living') {
             openings.back.push({ type: 'door', width: 0.9, height: 2.1, distanceFromStart: 0.5, sillHeight: 0 });
         }
@@ -213,7 +212,7 @@ function getDefaultOpenings(roomType, hasWindows, hasDoors) {
 }
 
 // Bir qavatdagi barcha xonalarni ketma-ket joylashtirish
-function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, materials, hasWindows, hasDoors, dataRoof) {
+function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, materials, hasWindows, hasDoors) {
     const group = new THREE.Group();
     const roomSize = {
         living: { w: 6, d: 6 },
@@ -232,7 +231,6 @@ function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, materia
         const size = roomSize[room.type] || roomSize.living;
         const openings = getDefaultOpenings(room.type, hasWindows, hasDoors);
 
-        // Birinchi qavatdagi birinchi xonaga qo'shimcha mebel qo'shamiz
         const roomExtraFurniture = index === 0 ? extraFurniture : [];
 
         const roomGroup = createRoom(
@@ -247,7 +245,6 @@ function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, materia
         roomGroup.position.x = cursorX + size.w / 2;
         group.add(roomGroup);
 
-        // Tom qo'shish (faqat eng yuqori qavatda, shuning uchun buildHouse da qavatga qarab)
         cursorX += size.w + spacing;
     });
 
@@ -273,19 +270,17 @@ export function buildHouse(data) {
     const rooms = data.rooms;
     const floors = Math.max(1, data.floors || 1);
 
-    // Xonalar soni kam bo'lsa, qavatlarni moslashtiramiz
     const effectiveFloors = Math.min(floors, rooms.length || 1);
     const roomsPerFloor = Math.ceil(rooms.length / effectiveFloors);
 
     const extraFurniture = data.furniture;
 
-    // Har bir qavat uchun xonalar massivini yaratamiz
+    // Har bir qavat uchun xonalar
     for (let f = 0; f < effectiveFloors; f++) {
         const startIdx = f * roomsPerFloor;
         const endIdx = Math.min(startIdx + roomsPerFloor, rooms.length);
         const floorRooms = rooms.slice(startIdx, endIdx);
 
-        // Agar bu qavatda xona bo'lmasa, oldingi qavatdan bitta xonani takrorlash yoki to'xtatish
         if (floorRooms.length === 0) continue;
 
         const yOffset = f * (wallHeight + floorThickness);
@@ -297,25 +292,28 @@ export function buildHouse(data) {
             extraFurniture,
             data.materials,
             data.hasWindows,
-            data.hasDoors,
-            data.roof
+            data.hasDoors
         );
         floorGroup.position.y = yOffset;
         group.add(floorGroup);
 
-        // Tom faqat eng yuqori qavatda qo'shiladi
+        // Tom faqat eng yuqori qavatda
         if (data.roof && f === effectiveFloors - 1) {
-            // Tomni butun qavatga emas, har bir xonaga alohida (hozircha tom birinchi xona uchun)
             const firstRoom = floorRooms[0];
             const size = roomSize[firstRoom.type] || roomSize.living;
             const roofColor = data.materials.roof || 0xaa5555;
             const roofMesh = createGableRoof(size.w, size.d, 1.5, roofColor);
-            roofMesh.position.set(floorGroup.position.x + (floorGroup.children[0]?.position.x || 0), yOffset + wallHeight, 0);
+
+            // To'g'ri markazlashtirish: birinchi xonaning markazi
+            const firstRoomGroup = floorGroup.children.find(child => child.type === 'Group');
+            const firstRoomCenterX = firstRoomGroup ? (firstRoomGroup.position.x || 0) : 0;
+
+            roofMesh.position.set(firstRoomCenterX, yOffset + wallHeight, 0);
             group.add(roofMesh);
         }
     }
 
-    // Zinapoya qo'shish (agar birdan ortiq qavat bo'lsa)
+    // Zinapoya
     if (effectiveFloors > 1) {
         const stairsWidth = 1.2;
         const stairsDepth = 2.5;
@@ -332,6 +330,7 @@ export function buildHouse(data) {
         const ground = createFloorSlab(groundWidth, 0.1, groundDepth, 0x77aa55, 0, -0.3, 0);
         group.add(ground);
 
+        // Daraxtlar ro'yxati [x, z]
         const treePositions = [
             [-groundWidth / 2 + 2, -4],
             [groundWidth / 2 - 2, -4],
@@ -340,9 +339,10 @@ export function buildHouse(data) {
             [0, -5],
             [0, 5]
         ];
-        treePositions.forEach(([x, z]) => {
-            group.add(createTree(x, z));
-        });
+
+        // 9-bosqich: instancing bilan daraxtlar
+        const instancedTrees = createTreeInstances(treePositions);
+        group.add(instancedTrees);
 
         const path = createBox(1.5, 0.05, 3, 0x999999, 0, -0.25, -5);
         group.add(path);
@@ -356,4 +356,3 @@ export function getHouseBoundingBox(houseGroup) {
     const box = new THREE.Box3().setFromObject(houseGroup);
     return box;
 }
-    
