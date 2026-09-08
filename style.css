@@ -65,6 +65,18 @@ body {
     background: #228822;
 }
 
+#ui #edit-mode-btn {
+    background: #888888;
+}
+
+#ui #edit-mode-btn:hover {
+    background: #666666;
+}
+
+#ui #edit-mode-btn.active {
+    background: #ff4444;
+}
+
 #ui small {
     color: #666;
     display: block;
