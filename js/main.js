@@ -1,8 +1,9 @@
 import { createScene } from './scene.js';
 import { parsePrompt } from './parser.js';
-import { buildHouse, getHouseBoundingBox, loadGLTFFurnitureForHouse } from './roomBuilder.js'; // <-- 3-bosqich GLTF yuklovchisi
+import { buildHouse, getHouseBoundingBox, loadGLTFFurnitureForHouse } from './roomBuilder.js'; 
 import { generateHouseJSONFromAI } from './aiService.js';
-import { LightingManager } from './lightingManager.js'; // <-- 4-bosqich Yoritish moduli
+import { LightingManager } from './lightingManager.js'; 
+import { CameraManager } from './cameraManager.js'; // <-- 5-BOSQICH: Kamera boshqaruvi importi
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -10,10 +11,13 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 const container = document.getElementById('canvas-container');
 const { scene, camera, renderer, controls } = createScene(container);
 
-// ---------- 4-bosqich: Renderer soyalari va LightingManager-ni sozlash ----------
+// ---------- 4-bosqich: Renderer soyalari va LightingManager sozlamalari ----------
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const lightingManager = new LightingManager(scene);
+
+// ---------- 5-bosqich: CameraManager instansiyasini yaratish ----------
+const cameraManager = new CameraManager(camera, scene, renderer, controls);
 
 let houseGroup = null;
 let loadingIndicator = null;
@@ -179,16 +183,23 @@ function hideLoading() {
 
 function fitCameraToHouse(group) {
     if (!group) return;
-    const box = getHouseBoundingBox(group);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const distance = maxDim * 2.2;
+    
+    // Agar kamera Orbit rejimida bo'lsa kamerani moslaymiz
+    if (cameraManager.currentMode === 'orbit') {
+        const box = getHouseBoundingBox(group);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const distance = maxDim * 2.2;
 
-    camera.position.set(center.x + distance * 0.8, center.y + distance * 0.6, center.z + distance * 0.8);
-    camera.lookAt(center);
-    controls.target.copy(center);
-    controls.update();
+        camera.position.set(center.x + distance * 0.8, center.y + distance * 0.6, center.z + distance * 0.8);
+        camera.lookAt(center);
+        controls.target.copy(center);
+        controls.update();
+    } else {
+        // Boshqa rejimda bo'lsa tanlangan rejim bo'yicha moslashtiramiz
+        cameraManager.setMode(cameraManager.currentMode, group);
+    }
 }
 
 function updateStats(data) {
@@ -379,6 +390,7 @@ function setupColorPalette() {
     const wallInput = document.getElementById('wall-color');
     const floorInput = document.getElementById('floor-color');
     const roofInput = document.getElementById('roof-color');
+    const lightingSelect = document.getElementById('lighting-select');
 
     function updateColors() {
         if (wallInput) currentCustomColors.wall = parseInt(wallInput.value.replace('#', ''), 16);
@@ -393,6 +405,11 @@ function setupColorPalette() {
     if (wallInput) wallInput.addEventListener('change', updateColors);
     if (floorInput) floorInput.addEventListener('change', updateColors);
     if (roofInput) roofInput.addEventListener('change', updateColors);
+    if (lightingSelect) {
+        lightingSelect.addEventListener('change', (e) => {
+            lightingManager.setTimePreset(e.target.value);
+        });
+    }
 }
 
 function setupPromptExamples() {
@@ -405,6 +422,19 @@ function setupPromptExamples() {
         });
     });
 }
+
+// ---------- 5-BOSQICH: Kamera rejimlari tugmalari hodisalari ----------
+document.getElementById('cam-orbit-btn')?.addEventListener('click', () => {
+    cameraManager.setMode('orbit', houseGroup);
+});
+
+document.getElementById('cam-fps-btn')?.addEventListener('click', () => {
+    cameraManager.setMode('fps', houseGroup);
+});
+
+document.getElementById('cam-top-btn')?.addEventListener('click', () => {
+    cameraManager.setMode('top', houseGroup);
+});
 
 // ---------- Hodisalarni ulash ----------
 document.getElementById('generate-btn')?.addEventListener('click', () => {
@@ -447,9 +477,19 @@ window.addEventListener('load', () => {
     }
 });
 
+// ---------- 5-BOSQICH: Animatsiya tsikliga update ulash ----------
 function animate() {
     requestAnimationFrame(animate);
-    controls.update();
+
+    // CameraManager rejimlarini kadrma-kadr yangilash (WASD harakatlari va boshqalar)
+    cameraManager.update();
+
+    // FPS rejimida bo'lmaganda OrbitControls-ni yangilaymiz
+    if (cameraManager.currentMode !== 'fps') {
+        controls.update();
+    }
+
     renderer.render(scene, camera);
 }
 animate();
+                      
