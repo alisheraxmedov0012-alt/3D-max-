@@ -1,13 +1,19 @@
 import { createScene } from './scene.js';
 import { parsePrompt } from './parser.js';
-import { buildHouse, getHouseBoundingBox } from './roomBuilder.js';
-import { generateHouseJSONFromAI } from './aiService.js'; // <-- 1. AI xizmatini ulaymiz
+import { buildHouse, getHouseBoundingBox, loadGLTFFurnitureForHouse } from './roomBuilder.js'; // <-- 3-bosqich GLTF yuklovchisi
+import { generateHouseJSONFromAI } from './aiService.js';
+import { LightingManager } from './lightingManager.js'; // <-- 4-bosqich Yoritish moduli
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 const container = document.getElementById('canvas-container');
-const { scene, camera, renderer, controls, setLightingPreset } = createScene(container);
+const { scene, camera, renderer, controls } = createScene(container);
+
+// ---------- 4-bosqich: Renderer soyalari va LightingManager-ni sozlash ----------
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const lightingManager = new LightingManager(scene);
 
 let houseGroup = null;
 let loadingIndicator = null;
@@ -218,7 +224,7 @@ function updateStats(data) {
     `;
 }
 
-// ---------- Sahna Yaratish Pipeline (AI Integratsiyalangan) ----------
+// ---------- Sahna Yaratish Pipeline (AI + GLTF + Lighting Integratsiyalangan) ----------
 async function generateHouse(prompt) {
     if (!prompt) return;
 
@@ -238,12 +244,10 @@ async function generateHouse(prompt) {
 
         let data = null;
 
-        // 2. Tasodifiy rejim bo'lmasa, avval AI ga so'rov yuboramiz
         if (prompt !== 'tasodifiy uy' && prompt !== 'random') {
             data = await generateHouseJSONFromAI(prompt);
         }
 
-        // 3. Agar AI ishlamasa yoki tasodifiy tugma bosilsa, fallback parser ishlaydi
         if (!data) {
             const parsed = await parsePrompt(prompt);
             data = parsed.random ? createRandomHouseData() : parsed;
@@ -254,10 +258,17 @@ async function generateHouse(prompt) {
         if (currentCustomColors.floor !== null) data.materials.floor = currentCustomColors.floor;
         if (currentCustomColors.roof !== null) data.materials.roof = currentCustomColors.roof;
 
-        setLightingPreset(data.lighting || 'day');
+        // 4-bosqich: Yoritish va Osmon rejimini o'rnatish
+        lightingManager.setTimePreset(data.lighting || 'day');
 
-        houseGroup = await buildHouse(data);
+        // Uyni qurish
+        houseGroup = buildHouse(data);
         scene.add(houseGroup);
+
+        // 3-bosqich: Tayyor 3D GLTF mebellarni asinxron fonda yuklab o'rnatish
+        if (data.modelUrls) {
+            loadGLTFFurnitureForHouse(houseGroup, data.modelUrls);
+        }
 
         fitCameraToHouse(houseGroup);
         updateStats(data);
