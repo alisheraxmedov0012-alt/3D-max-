@@ -25,9 +25,18 @@
         <button id="random-btn">🎲 Tasodifiy uy</button>
         <button id="download-btn">💾 Yuklab olish (GLB)</button>
         <button id="edit-mode-btn">✏️ Tahrir rejimi</button>
-        <button id="view-mode-btn">📐 2D Blueprint / 3D</button>
         <button id="save-btn">🔒 Saqlash</button>
         <button id="load-btn">📂 Yuklash</button>
+
+        <!-- Kamera rejimlarini boshqarish tugmalari -->
+        <div id="camera-controls" style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+            <label style="display: block; margin-bottom: 5px;"><b>Kamera Rejimi:</b></label>
+            <div style="display: flex; gap: 5px;">
+                <button id="cam-orbit-btn" class="active" style="flex: 1; padding: 6px;">🛸 Orbit 3D</button>
+                <button id="cam-fps-btn" style="flex: 1; padding: 6px;">🚶 FPS Yurish</button>
+                <button id="cam-top-btn" style="flex: 1; padding: 6px;">📐 2D Sxema</button>
+            </div>
+        </div>
 
         <!-- Yoritish rejimlari va Rang palitrasi -->
         <div id="color-palette">
