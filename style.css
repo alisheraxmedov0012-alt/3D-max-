@@ -9,6 +9,8 @@ body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: #121214;
     color: #e4e4e7;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 #canvas-container {
@@ -20,153 +22,243 @@ body {
     z-index: 1;
 }
 
-/* Glassmorphism uslubidagi UI Panel */
-#ui {
+/* Glassmorphism uslubidagi Asosiy UI Panel */
+#ui, .ui-panel {
     position: absolute;
     top: 20px;
     left: 20px;
     background: rgba(24, 24, 27, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 20px;
-    border-radius: 14px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    padding: 18px;
+    border-radius: 16px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
     z-index: 10;
     width: 360px;
     max-height: calc(100vh - 40px);
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #3f3f46 transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Panel Sarlavhasi va Badge */
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 #ui h2 {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
-    margin-bottom: 12px;
     color: #f4f4f5;
     letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-/* Text Input */
-#ui input[type="text"] {
+.badge {
+    font-size: 10px;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    color: #ffffff;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* Ajratuvchi chiziq (Divider) */
+.divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 4px 0;
+}
+
+/* Textarea Prompt Input */
+#ui textarea, #ui input[type="text"] {
     width: 100%;
     padding: 10px 12px;
-    margin: 8px 0 12px 0;
     background: rgba(39, 39, 42, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 8px;
     font-size: 13px;
     color: #fff;
     outline: none;
+    resize: none;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-#ui input[type="text"]:focus {
+#ui textarea:focus, #ui input[type="text"]:focus {
     border-color: #6366f1;
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
 }
 
-/* Tugmalar uchun umumiy stil */
-#ui button {
-    padding: 9px 14px;
+/* Tugmalar uchun universal va grid stillar */
+.btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.primary-actions {
+    margin-top: 6px;
+}
+
+#ui button, .btn {
+    width: 100%;
+    padding: 9px 12px;
     background: #4f46e5;
     color: white;
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
-    margin-right: 4px;
-    margin-bottom: 8px;
     transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
 }
 
-#ui button:hover {
+#ui button:hover, .btn:hover {
     background: #4338ca;
     transform: translateY(-1px);
 }
 
-#ui button:active {
+#ui button:active, .btn:active {
     transform: translateY(0);
 }
 
-/* Maxsus tugmalar ranglari */
-#ui #random-btn {
-    background: #d97706;
-}
-#ui #random-btn:hover {
-    background: #b45309;
+/* Maxsus va Rangli Tugmalar */
+.btn-primary {
+    background: linear-gradient(135deg, #4f46e5, #6366f1) !important;
 }
 
-#ui #download-btn {
-    background: #059669;
+.btn-secondary, #random-btn {
+    background: #d97706 !important;
 }
-#ui #download-btn:hover {
-    background: #047857;
+.btn-secondary:hover, #random-btn:hover {
+    background: #b45309 !important;
 }
 
-#ui #edit-mode-btn {
-    background: #52525b;
+#download-btn {
+    background: #059669 !important;
 }
-#ui #edit-mode-btn:hover {
-    background: #3f3f46;
+#download-btn:hover {
+    background: #047857 !important;
 }
-#ui #edit-mode-btn.active {
-    background: #dc2626;
+
+#edit-mode-btn, .btn-outline {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #e4e4e7 !important;
+}
+#edit-mode-btn:hover, .btn-outline:hover {
+    background: rgba(255, 255, 255, 0.18) !important;
+}
+
+#edit-mode-btn.active {
+    background: #dc2626 !important;
+    border-color: #ef4444 !important;
     animation: pulse 1.5s infinite;
 }
 
-#ui #save-btn {
-    background: #2563eb;
-}
-#ui #save-btn:hover {
-    background: #1d4ed8;
-}
-
-#ui #load-btn {
-    background: #7c3aed;
-}
-#ui #load-btn:hover {
-    background: #6d28d9;
-}
-
-#ui small {
-    color: #a1a1aa;
-    display: block;
-    margin-top: 10px;
-    line-height: 1.4;
+.btn-small, #save-btn, #load-btn {
+    padding: 6px 10px;
     font-size: 11px;
 }
+#save-btn { background: #2563eb !important; }
+#save-btn:hover { background: #1d4ed8 !important; }
+#load-btn { background: #7c3aed !important; }
+#load-btn:hover { background: #6d28d9 !important; }
 
-/* Rang palitrasi */
-#color-palette {
-    margin: 12px 0;
+/* Kamera Boshqaruvi Tugmalari */
+.btn-group {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.btn-toggle {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #a1a1aa !important;
+    flex: 1;
+}
+
+.btn-toggle.active, .btn-toggle:hover {
+    background: #4f46e5 !important;
+    color: #ffffff !important;
+    border-color: #6366f1 !important;
+}
+
+/* Prompt Misollari (Namuna Teglar) */
+.examples-section .section-title, .section-label {
+    font-size: 11px;
+    color: #a1a1aa;
+    font-weight: 500;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.example-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.example-btn {
+    font-size: 11px !important;
+    padding: 5px 8px !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #d4d4d8 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 6px !important;
+    margin: 0 !important;
+    width: auto !important;
+}
+
+.example-btn:hover {
+    background: rgba(255, 255, 255, 0.18) !important;
+    color: #fff !important;
+}
+
+/* Rang va Yoritish Boshqaruvi */
+.control-box, #color-palette {
+    background: rgba(39, 39, 42, 0.5);
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: rgba(39, 39, 42, 0.5);
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-#color-palette label {
-    font-size: 12px;
+.color-picker-grid {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.color-picker-grid label, #color-palette label {
+    font-size: 11px;
     color: #d4d4d8;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 6px;
 }
 
 #color-palette input[type="color"] {
     -webkit-appearance: none;
     border: none;
-    width: 32px;
-    height: 24px;
+    width: 28px;
+    height: 22px;
     border-radius: 4px;
     cursor: pointer;
     background: transparent;
@@ -181,51 +273,107 @@ body {
     border-radius: 4px;
 }
 
-/* Prompt misollari */
-#prompt-examples {
+/* Select Field (Yoritish Dropdown) */
+.select-field {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 10px 0;
-}
-
-#prompt-examples .example-btn {
+    align-items: center;
+    justify-content: space-between;
     font-size: 11px;
-    padding: 5px 10px;
-    background: rgba(255, 255, 255, 0.08);
     color: #d4d4d8;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.select-field select, #lighting-select {
+    background: rgba(24, 24, 27, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 6px;
-    margin: 0;
-}
-
-#prompt-examples .example-btn:hover {
-    background: rgba(255, 255, 255, 0.18);
     color: #fff;
+    padding: 4px 8px;
+    font-size: 11px;
+    outline: none;
+    cursor: pointer;
 }
 
-/* Statistika paneli */
-#stats {
+/* Statistika Paneli */
+.stats-box, #stats {
     background: rgba(39, 39, 42, 0.6);
     padding: 10px 12px;
-    border-radius: 8px;
-    margin-top: 12px;
-    font-size: 12px;
+    border-radius: 10px;
+    font-size: 11px;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-#stats strong {
-    color: #f4f4f5;
-}
-
 #stats-content {
-    margin-top: 6px;
+    margin-top: 4px;
     color: #a1a1aa;
     line-height: 1.5;
 }
 
+.hint-text {
+    color: #71717a;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+/* Pulsatsiya Effekti (Tahrir rejimi uchun) */
 @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
     70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
     100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+/* Mobil Sensorli Boshqaruv Overlay (7-Bosqich: Touch Controls) */
+.mobile-overlay {
+    position: absolute;
+    bottom: 25px;
+    left: 20px;
+    right: 20px;
+    z-index: 20;
+    pointer-events: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.joystick-container {
+    width: 110px;
+    height: 110px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    pointer-events: auto;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.mobile-hint {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    color: #d4d4d8;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+}
+
+/* Responsive (Mobil Moslashuvchanlik) */
+@media (max-width: 480px) {
+    #ui, .ui-panel {
+        top: 10px;
+        left: 10px;
+        width: calc(100vw - 20px);
+        max-height: 60vh;
+        padding: 14px;
+    }
+    
+    .btn-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mobile-overlay {
+        bottom: 15px;
+        left: 10px;
+        right: 10px;
+    }
 }
