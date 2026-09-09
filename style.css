@@ -22,6 +22,50 @@ body {
     z-index: 1;
 }
 
+/* Mustaqil Kamera Boshqaruv Paneli (O'ng tepadagi panel) */
+#camera-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 15;
+    display: flex;
+    gap: 8px;
+    background: rgba(24, 24, 27, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 6px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.cam-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #a1a1aa;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.cam-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+
+.cam-btn.active {
+    background: #4f46e5;
+    color: #ffffff;
+    border-color: #6366f1;
+    box-shadow: 0 2px 10px rgba(79, 70, 229, 0.4);
+}
+
 /* Glassmorphism uslubidagi Asosiy UI Panel */
 #ui, .ui-panel {
     position: absolute;
@@ -178,26 +222,6 @@ body {
 #load-btn { background: #7c3aed !important; }
 #load-btn:hover { background: #6d28d9 !important; }
 
-/* Kamera Boshqaruvi Tugmalari */
-.btn-group {
-    display: flex;
-    gap: 6px;
-    margin-top: 6px;
-}
-
-.btn-toggle {
-    background: rgba(255, 255, 255, 0.06) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    color: #a1a1aa !important;
-    flex: 1;
-}
-
-.btn-toggle.active, .btn-toggle:hover {
-    background: #4f46e5 !important;
-    color: #ffffff !important;
-    border-color: #6366f1 !important;
-}
-
 /* Prompt Misollari (Namuna Teglar) */
 .examples-section .section-title, .section-label {
     font-size: 11px;
@@ -321,8 +345,8 @@ body {
     100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
 }
 
-/* Mobil Sensorli Boshqaruv Overlay (7-Bosqich: Touch Controls) */
-.mobile-overlay {
+/* Mobil Sensorli Boshqaruv Overlay (Touch / Joystik) */
+#mobile-touch-controls {
     position: absolute;
     bottom: 25px;
     left: 20px;
@@ -334,36 +358,71 @@ body {
     align-items: flex-end;
 }
 
-.joystick-container {
+/* Joystik Baza va Stik Stillari */
+#joystick-base {
     width: 110px;
     height: 110px;
     background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 50%;
     pointer-events: auto;
     position: relative;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    touch-action: none;
 }
 
-.mobile-hint {
-    background: rgba(0, 0, 0, 0.6);
+#joystick-stick {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    transition: transform 0.05s ease-out;
+}
+
+/* Sensorli Qarashtirish (Look around) Bildirishnomasi */
+#touch-look-hint {
+    background: rgba(0, 0, 0, 0.65);
     backdrop-filter: blur(6px);
     color: #d4d4d8;
-    padding: 6px 12px;
+    padding: 8px 14px;
     border-radius: 20px;
     font-size: 11px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     pointer-events: none;
+    margin-bottom: 10px;
 }
 
 /* Responsive (Mobil Moslashuvchanlik) */
+@media (max-width: 768px) {
+    #camera-controls {
+        top: 10px;
+        right: 10px;
+        padding: 4px;
+    }
+
+    .cam-btn span {
+        display: none; /* Mobilda faqat ikonkalarni ko'rsatish */
+    }
+
+    .cam-btn {
+        padding: 8px;
+    }
+}
+
 @media (max-width: 480px) {
     #ui, .ui-panel {
         top: 10px;
         left: 10px;
         width: calc(100vw - 20px);
-        max-height: 60vh;
+        max-height: 50vh;
         padding: 14px;
     }
     
@@ -371,7 +430,7 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .mobile-overlay {
+    #mobile-touch-controls {
         bottom: 15px;
         left: 10px;
         right: 10px;
