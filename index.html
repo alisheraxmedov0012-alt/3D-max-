@@ -21,6 +21,33 @@
     <!-- 3D Canvas Konteyneri -->
     <div id="canvas-container"></div>
 
+    <!-- Kamera Rejimlarini Boshqarish Paneli (O'ng tepadagi mustaqil panel) -->
+    <div id="camera-controls">
+        <button id="cam-orbit-btn" class="cam-btn active" title="Orbit ko'rinish">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M3.6 9h16.8M3.6 15h16.8"/>
+            </svg>
+            <span>Orbit</span>
+        </button>
+
+        <button id="cam-fps-btn" class="cam-btn" title="Birinchi shaxs rejimi (FPS)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 6a4 4 0 1 1-4 4 4 4 0 0 1 4-4z"/>
+                <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+            </svg>
+            <span>FPS (Yurish)</span>
+        </button>
+
+        <button id="cam-top-btn" class="cam-btn" title="Tepadan ko'rinish (2D/3D)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <path d="M12 4v16M4 12h16"/>
+            </svg>
+            <span>Tepadan</span>
+        </button>
+    </div>
+
     <!-- Asosiy UI Boshqaruv Paneli -->
     <div id="ui" class="ui-panel">
         <div class="panel-header">
@@ -49,16 +76,6 @@
         </div>
 
         <div class="divider"></div>
-
-        <!-- Kamera Rejimlarini Boshqarish -->
-        <div id="camera-controls" class="control-box">
-            <label class="section-label">🎥 Kamera Rejimi:</label>
-            <div class="btn-group">
-                <button id="cam-orbit-btn" class="btn btn-toggle active">🛸 Orbit 3D</button>
-                <button id="cam-fps-btn" class="btn btn-toggle">🚶 FPS Yurish</button>
-                <button id="cam-top-btn" class="btn btn-toggle">📐 2D Sxema</button>
-            </div>
-        </div>
 
         <!-- Yoritish va Rang Palitrasi -->
         <div id="color-palette" class="control-box">
@@ -109,10 +126,17 @@
         </p>
     </div>
 
-    <!-- Mobil Sensorli Boshqaruv (Touch / Mobile Overlay) Container -->
-    <div id="mobile-touch-controls" class="mobile-overlay" style="display: none;">
-        <div id="joystick-zone" class="joystick-container"></div>
-        <div class="mobile-hint">Ekranni suring (Look around) / Joystik bilan yuring</div>
+    <!-- Mobil Sensorli Boshqaruv (Touch / Mobile Overlay) -->
+    <div id="mobile-touch-controls" style="display: none;">
+        <!-- Joystik Bazasi va Suriluvchi Tugmasi -->
+        <div id="joystick-base">
+            <div id="joystick-stick"></div>
+        </div>
+
+        <!-- O'ng tomondagi ekranni surish ishorasi -->
+        <div id="touch-look-hint">
+            <span>Ekranni surib atrofga qarang 👆</span>
+        </div>
     </div>
 
     <script type="module" src="js/main.js"></script>
