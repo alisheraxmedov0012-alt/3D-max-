@@ -9,7 +9,8 @@
     {
         "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+            "three-bvh-csg": "https://cdn.jsdelivr.net/npm/three-bvh-csg@0.0.16/build/index.module.js"
         }
     }
     </script>
@@ -18,24 +19,32 @@
     <div id="ui">
         <h2>Uy/xona generator <span style="font-size: 12px; background: #007bff; color: white; padding: 2px 6px; border-radius: 4px;">AI Powered</span></h2>
         
-        <!-- Prompt inputi AI uchun kengaytirilgan va aniqroq misol bilan -->
         <input type="text" id="prompt-input" placeholder="Masalan: 2 qavatli zamonaviy villa, oshxona, kaminli mehmonxona, divan, marmar pol" />
         
         <button id="generate-btn">✨ AI bilan yaratish</button>
         <button id="random-btn">🎲 Tasodifiy uy</button>
         <button id="download-btn">💾 Yuklab olish (GLB)</button>
         <button id="edit-mode-btn">✏️ Tahrir rejimi</button>
+        <button id="view-mode-btn">📐 2D Blueprint / 3D</button>
         <button id="save-btn">🔒 Saqlash</button>
         <button id="load-btn">📂 Yuklash</button>
 
-        <!-- Rang palitrasi -->
+        <!-- Yoritish rejimlari va Rang palitrasi -->
         <div id="color-palette">
             <label>Devor: <input type="color" id="wall-color" value="#cccccc"></label>
             <label>Pol: <input type="color" id="floor-color" value="#8a5a2b"></label>
             <label>Tom: <input type="color" id="roof-color" value="#aa5555"></label>
+            <label style="margin-top: 6px;">Yoritish: 
+                <select id="lighting-select" style="padding: 2px 4px; border-radius: 4px;">
+                    <option value="day">Kunduzgi</option>
+                    <option value="sunny">Quyoshli</option>
+                    <option value="sunset">Kechqurun</option>
+                    <option value="night">Tun</option>
+                </select>
+            </label>
         </div>
 
-        <!-- AI uchun mukammal prompt misollari -->
+        <!-- AI uchun prompt misollari -->
         <div id="prompt-examples">
             <button class="example-btn" data-prompt="1 xonali shinam xonadon, divan, TV, jurnal stoli, oq devor, yog'och pol">1 xonali kvartira</button>
             <button class="example-btn" data-prompt="2 qavatli kottedj, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa va hovli">2 qavatli kottedj</button>
