@@ -11,9 +11,21 @@ import {
     createFloorSlab
 } from './objects.js';
 import { textureManager } from './textureLoader.js';
-import { csgEngine } from './csgEngine.js'; // CSG modulini import qilish
+import { csgEngine } from './csgEngine.js';
+import { gltfLoader } from './gltfLoader.js';
 
-// Materiallarni material tipiga yoki rangiga qarab yaratuvchi yordamchi funksiya
+// Obyektlarga soyalarni avtomatik biriktiruvchi yordamchi funksiya
+function enableShadows(obj, cast = true, receive = true) {
+    obj.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = cast;
+            child.receiveShadow = receive;
+        }
+    });
+    return obj;
+}
+
+// Materiallarni material tipiga yoki rangiga qarab yaratish
 export function getAdvancedMaterial(typeOrColor, defaultColor = 0xcccccc) {
     if (typeOrColor === 'wood') {
         return new THREE.MeshStandardMaterial({
@@ -37,7 +49,6 @@ export function getAdvancedMaterial(typeOrColor, defaultColor = 0xcccccc) {
         });
     }
 
-    // Agar rang qiymati berilgan bo'lsa
     const colorVal = typeof typeOrColor === 'number' ? typeOrColor : defaultColor;
     return new THREE.MeshStandardMaterial({
         color: colorVal,
@@ -46,11 +57,9 @@ export function getAdvancedMaterial(typeOrColor, defaultColor = 0xcccccc) {
     });
 }
 
-// Xona o'lchamlarini olish (Dinamik + Standart fallback)
+// Xona o'lchamlarini olish
 function getRoomSize(roomType, customDimensions = {}) {
-    if (customDimensions[roomType]) {
-        return customDimensions[roomType];
-    }
+    if (customDimensions[roomType]) return customDimensions[roomType];
     const defaultSizes = {
         living: { w: 6, d: 6 },
         kitchen: { w: 4, d: 4 },
@@ -64,40 +73,30 @@ function getRoomSize(roomType, customDimensions = {}) {
     return defaultSizes[roomType] || { w: 5, d: 5 };
 }
 
-// CSG orqali monolit devorni o'yib deraza/eshik o'rnatish funksiyasi
+// CSG orqali monolit devorni o'yish va deraza/eshiklarni o'rnatish
 function createWallWithOpenings(wallLength, wallHeight, openings, position, rotationY, wallColor = 0xcccccc) {
     const group = new THREE.Group();
     const thickness = 0.2;
     const wallMaterial = getAdvancedMaterial(wallColor);
 
-    // 1. CSG orqali monolit devordan teshiklarni kesib olish
+    // CSG bilan monolit devor kesish
     const wallMesh = csgEngine.createWallWithCSG(wallLength, wallHeight, thickness, openings, wallMaterial);
+    enableShadows(wallMesh);
     group.add(wallMesh);
 
-    // 2. Teshik joylariga deraza va eshik obyektlarini o'rnatish
+    // Deraza va eshik karkaslarini o'rnatish
     openings.forEach(opening => {
         const openingWidth = opening.width;
         const openingStart = Math.max(-wallLength / 2, Math.min(wallLength / 2 - openingWidth, opening.distanceFromStart - wallLength / 2));
         const posX = openingStart + openingWidth / 2;
 
         if (opening.type === 'window') {
-            const windowGroup = createWindow(
-                openingWidth,
-                opening.height,
-                opening.sillHeight || 0.8,
-                posX,
-                0,
-                0
-            );
+            const windowGroup = createWindow(openingWidth, opening.height, opening.sillHeight || 0.8, posX, 0, 0);
+            enableShadows(windowGroup);
             group.add(windowGroup);
         } else if (opening.type === 'door') {
-            const doorGroup = createDoor(
-                openingWidth,
-                opening.height,
-                posX,
-                0,
-                0
-            );
+            const doorGroup = createDoor(openingWidth, opening.height, posX, 0, 0);
+            enableShadows(doorGroup);
             group.add(doorGroup);
         }
     });
@@ -146,41 +145,44 @@ function getDefaultFurniture(roomType) {
     }
 }
 
-// Yagona xona obyektini yig'ish
+// Yagona xonani yig'ish (Procedural va GLTF tayyorgarligi bilan)
 function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture = [], materials = {}, roomType = 'living') {
     const group = new THREE.Group();
-    group.userData = { type: roomType, isInteractable: false };
+    group.userData = { type: roomType, isInteractable: true };
 
     const wallColor = materials.wall || 0xd1c7bd;
     const floorColor = materials.floor || 0x8a5a2b;
 
     // Pol va Shift
-    const floor = createFloorSlab(roomWidth, 0.2, roomDepth, floorColor, 0, -0.1, 0);
-    const ceiling = createFloorSlab(roomWidth, 0.2, roomDepth, wallColor, 0, wallHeight + 0.1, 0);
+    const floor = enableShadows(createFloorSlab(roomWidth, 0.2, roomDepth, floorColor, 0, -0.1, 0));
+    const ceiling = enableShadows(createFloorSlab(roomWidth, 0.2, roomDepth, wallColor, 0, wallHeight + 0.1, 0));
     group.add(floor, ceiling);
 
     const halfW = roomWidth / 2;
     const halfD = roomDepth / 2;
 
-    // 4 ta devor
+    // 4 ta monolit CSG devor
     group.add(createWallWithOpenings(roomWidth, wallHeight, openings.front || [], { x: 0, z: -halfD }, 0, wallColor));
     group.add(createWallWithOpenings(roomWidth, wallHeight, openings.back || [], { x: 0, z: halfD }, Math.PI, wallColor));
     group.add(createWallWithOpenings(roomDepth, wallHeight, openings.left || [], { x: -halfW, z: 0 }, -Math.PI / 2, wallColor));
     group.add(createWallWithOpenings(roomDepth, wallHeight, openings.right || [], { x: halfW, z: 0 }, Math.PI / 2, wallColor));
 
-    // Mebellarni joylashtirish
+    // Tezkor procedural (zahira) mebellarni joylashtirish
     const defaultList = getDefaultFurniture(roomType);
     const finalFurniture = furniture.length > 0 ? furniture : defaultList;
 
+    const proceduralGroup = new THREE.Group();
+    proceduralGroup.name = "proceduralFurniture";
     finalFurniture.forEach(item => {
         const parts = createFurniture(item.type, item.position);
-        parts.forEach(part => group.add(part));
+        parts.forEach(part => proceduralGroup.add(enableShadows(part)));
     });
+    group.add(proceduralGroup);
 
     return group;
 }
 
-// Xona uchun standart deraza va eshik o'rinlari
+// Standart teshiklar (deraza/eshik)
 function getDefaultOpenings(roomWidth, roomDepth, hasWindows, hasDoors) {
     const openings = { front: [], back: [], left: [], right: [] };
 
@@ -196,7 +198,7 @@ function getDefaultOpenings(roomWidth, roomDepth, hasWindows, hasDoors) {
     return openings;
 }
 
-// Bir qavatdagi barcha xonalarni joylashtirish
+// Bir qavatdagi barcha xonalar
 function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, data) {
     const group = new THREE.Group();
     const customDims = data.roomDimensions || {};
@@ -235,7 +237,7 @@ function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, data) {
     return { floorGroup: group, totalWidth };
 }
 
-// Butun binoni yig'ish
+// Butun bino
 export function buildHouse(data) {
     const group = new THREE.Group();
     const wallHeight = 3.0;
@@ -274,21 +276,21 @@ export function buildHouse(data) {
 
         if (data.roof && f === effectiveFloors - 1) {
             const roofColor = data.materials?.roof || 0xa53a3a;
-            const roofMesh = createGableRoof(totalWidth + 0.6, maxFloorDepth + 0.6, 1.8, roofColor);
+            const roofMesh = enableShadows(createGableRoof(totalWidth + 0.6, maxFloorDepth + 0.6, 1.8, roofColor));
             roofMesh.position.set(0, yOffset + wallHeight + 0.1, 0);
             group.add(roofMesh);
         }
     }
 
     if (effectiveFloors > 1) {
-        const stairs = createStairs(1.2, 2.5, wallHeight, 0x5c3a1a, -maxFloorWidth / 2 + 1, 0, -1);
+        const stairs = enableShadows(createStairs(1.2, 2.5, wallHeight, 0x5c3a1a, -maxFloorWidth / 2 + 1, 0, -1));
         group.add(stairs);
     }
 
     if (data.landscape) {
         const groundWidth = maxFloorWidth + 14;
         const groundDepth = maxFloorDepth + 14;
-        const ground = createFloorSlab(groundWidth, 0.1, groundDepth, 0x4caf50, 0, -0.15, 0);
+        const ground = enableShadows(createFloorSlab(groundWidth, 0.1, groundDepth, 0x4caf50, 0, -0.15, 0), false, true);
         group.add(ground);
 
         const treePositions = [
@@ -299,17 +301,50 @@ export function buildHouse(data) {
             [0, -groundDepth / 2 + 1.5]
         ];
 
-        const instancedTrees = createTreeInstances(treePositions);
+        const instancedTrees = enableShadows(createTreeInstances(treePositions));
         group.add(instancedTrees);
 
-        const path = createBox(1.8, 0.02, 4, 0x9e9e9e, 0, -0.08, groundDepth / 2 - 2);
+        const path = enableShadows(createBox(1.8, 0.02, 4, 0x9e9e9e, 0, -0.08, groundDepth / 2 - 2));
         group.add(path);
     }
 
     return group;
 }
 
-// Sahnaga moslashtirish uchun BoundingBox olish
+// 3D GLTF Modellarni asinxron yuklab joylashtirish (Optimallashgan Paralel vaqtlash)
+export async function loadGLTFFurnitureForHouse(houseGroup, modelUrls = {}) {
+    if (!modelUrls || Object.keys(modelUrls).length === 0) return;
+
+    const promises = [];
+
+    houseGroup.traverse((child) => {
+        if (child.userData && child.userData.isInteractable && child.userData.type) {
+            const roomType = child.userData.type;
+            const defaultList = getDefaultFurniture(roomType);
+
+            defaultList.forEach((item) => {
+                if (modelUrls[item.type]) {
+                    const promise = gltfLoader.getFurnitureAsync(item.type, item.position, modelUrls).then((model) => {
+                        if (model) {
+                            enableShadows(model);
+                            child.add(model);
+
+                            // Sifatli 3D model yuklangach, sodda procedural mebelni yashirish
+                            const procedural = child.getObjectByName("proceduralFurniture");
+                            if (procedural) {
+                                procedural.visible = false;
+                            }
+                        }
+                    });
+                    promises.push(promise);
+                }
+            });
+        }
+    });
+
+    await Promise.allSettled(promises);
+}
+
 export function getHouseBoundingBox(houseGroup) {
     return new THREE.Box3().setFromObject(houseGroup);
 }
