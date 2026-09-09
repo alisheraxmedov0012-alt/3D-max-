@@ -11,6 +11,7 @@ import {
     createFloorSlab
 } from './objects.js';
 import { textureManager } from './textureLoader.js';
+import { csgEngine } from './csgEngine.js'; // CSG modulini import qilish
 
 // Materiallarni material tipiga yoki rangiga qarab yaratuvchi yordamchi funksiya
 export function getAdvancedMaterial(typeOrColor, defaultColor = 0xcccccc) {
@@ -63,33 +64,28 @@ function getRoomSize(roomType, customDimensions = {}) {
     return defaultSizes[roomType] || { w: 5, d: 5 };
 }
 
-// Devorni teshiklar (deraza/eshik) bilan xavfsiz qurish
+// CSG orqali monolit devorni o'yib deraza/eshik o'rnatish funksiyasi
 function createWallWithOpenings(wallLength, wallHeight, openings, position, rotationY, wallColor = 0xcccccc) {
     const group = new THREE.Group();
     const thickness = 0.2;
+    const wallMaterial = getAdvancedMaterial(wallColor);
 
-    let currentX = -wallLength / 2;
-    const sortedOpenings = [...openings].sort((a, b) => a.distanceFromStart - b.distanceFromStart);
+    // 1. CSG orqali monolit devordan teshiklarni kesib olish
+    const wallMesh = csgEngine.createWallWithCSG(wallLength, wallHeight, thickness, openings, wallMaterial);
+    group.add(wallMesh);
 
-    sortedOpenings.forEach(opening => {
+    // 2. Teshik joylariga deraza va eshik obyektlarini o'rnatish
+    openings.forEach(opening => {
         const openingWidth = opening.width;
-        // Teshik devor chegarasidan chiqib ketmasligini ta'minlash
         const openingStart = Math.max(-wallLength / 2, Math.min(wallLength / 2 - openingWidth, opening.distanceFromStart - wallLength / 2));
-        
-        // Oldingi devor qismi
-        const beforeWidth = openingStart - currentX;
-        if (beforeWidth > 0.05) {
-            const segment = createBox(beforeWidth, wallHeight, thickness, wallColor, currentX + beforeWidth / 2, wallHeight / 2, 0);
-            group.add(segment);
-        }
+        const posX = openingStart + openingWidth / 2;
 
-        // Deraza yoki Eshik o'rnatish
         if (opening.type === 'window') {
             const windowGroup = createWindow(
                 openingWidth,
                 opening.height,
                 opening.sillHeight || 0.8,
-                openingStart + openingWidth / 2,
+                posX,
                 0,
                 0
             );
@@ -98,53 +94,13 @@ function createWallWithOpenings(wallLength, wallHeight, openings, position, rota
             const doorGroup = createDoor(
                 openingWidth,
                 opening.height,
-                openingStart + openingWidth / 2,
+                posX,
                 0,
                 0
             );
             group.add(doorGroup);
         }
-
-        const sill = opening.sillHeight || 0;
-        const aboveHeight = wallHeight - sill - opening.height;
-
-        // Teshik tepasidagi devor
-        if (aboveHeight > 0.05) {
-            const aboveSegment = createBox(
-                openingWidth,
-                aboveHeight,
-                thickness,
-                wallColor,
-                openingStart + openingWidth / 2,
-                sill + opening.height + aboveHeight / 2,
-                0
-            );
-            group.add(aboveSegment);
-        }
-
-        // Teshik ostidagi devor (deraza tokchasi osti)
-        if (sill > 0.05) {
-            const sillSegment = createBox(
-                openingWidth,
-                sill,
-                thickness,
-                wallColor,
-                openingStart + openingWidth / 2,
-                sill / 2,
-                0
-            );
-            group.add(sillSegment);
-        }
-
-        currentX = openingStart + openingWidth;
     });
-
-    // Devorning oxirgi qismi
-    const afterWidth = wallLength / 2 - currentX;
-    if (afterWidth > 0.05) {
-        const segment = createBox(afterWidth, wallHeight, thickness, wallColor, currentX + afterWidth / 2, wallHeight / 2, 0);
-        group.add(segment);
-    }
 
     group.position.set(position.x, 0, position.z);
     group.rotation.y = rotationY;
@@ -198,7 +154,7 @@ function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture = [], 
     const wallColor = materials.wall || 0xd1c7bd;
     const floorColor = materials.floor || 0x8a5a2b;
 
-    // Pol va Shift (Teksturalar qo'llanilgan)
+    // Pol va Shift
     const floor = createFloorSlab(roomWidth, 0.2, roomDepth, floorColor, 0, -0.1, 0);
     const ceiling = createFloorSlab(roomWidth, 0.2, roomDepth, wallColor, 0, wallHeight + 0.1, 0);
     group.add(floor, ceiling);
@@ -212,7 +168,7 @@ function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture = [], 
     group.add(createWallWithOpenings(roomDepth, wallHeight, openings.left || [], { x: -halfW, z: 0 }, -Math.PI / 2, wallColor));
     group.add(createWallWithOpenings(roomDepth, wallHeight, openings.right || [], { x: halfW, z: 0 }, Math.PI / 2, wallColor));
 
-    // Mebellarni ustma-ust tushirmasdan joylash
+    // Mebellarni joylashtirish
     const defaultList = getDefaultFurniture(roomType);
     const finalFurniture = furniture.length > 0 ? furniture : defaultList;
 
@@ -279,7 +235,7 @@ function createFloorLevel(roomList, spacing, wallHeight, extraFurniture, data) {
     return { floorGroup: group, totalWidth };
 }
 
-// Butun binoni (Ko'p qavatli uy) yig'ish
+// Butun binoni yig'ish
 export function buildHouse(data) {
     const group = new THREE.Group();
     const wallHeight = 3.0;
@@ -316,7 +272,6 @@ export function buildHouse(data) {
 
         if (totalWidth > maxFloorWidth) maxFloorWidth = totalWidth;
 
-        // Tom butun eng yuqori qavatni yopadi
         if (data.roof && f === effectiveFloors - 1) {
             const roofColor = data.materials?.roof || 0xa53a3a;
             const roofMesh = createGableRoof(totalWidth + 0.6, maxFloorDepth + 0.6, 1.8, roofColor);
@@ -325,13 +280,11 @@ export function buildHouse(data) {
         }
     }
 
-    // Ikki va undan yuqori qavatlar uchun zinapoya
     if (effectiveFloors > 1) {
         const stairs = createStairs(1.2, 2.5, wallHeight, 0x5c3a1a, -maxFloorWidth / 2 + 1, 0, -1);
         group.add(stairs);
     }
 
-    // Landshaft va daraxtlar
     if (data.landscape) {
         const groundWidth = maxFloorWidth + 14;
         const groundDepth = maxFloorDepth + 14;
@@ -359,5 +312,4 @@ export function buildHouse(data) {
 // Sahnaga moslashtirish uchun BoundingBox olish
 export function getHouseBoundingBox(houseGroup) {
     return new THREE.Box3().setFromObject(houseGroup);
-    }
-                                             
+}
