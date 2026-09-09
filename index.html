@@ -2,9 +2,11 @@
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ArchViz AI Assistant — GPT-4o Mini</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ArchViz AI Assistant — 3D Uy Samolyot & Generatsiya</title>
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Module import map -->
     <script type="importmap">
     {
         "imports": {
@@ -16,62 +18,103 @@
     </script>
 </head>
 <body>
-    <div id="ui">
-        <h2>Uy/xona generator <span style="font-size: 12px; background: #007bff; color: white; padding: 2px 6px; border-radius: 4px;">AI Powered</span></h2>
-        
-        <input type="text" id="prompt-input" placeholder="Masalan: 2 qavatli zamonaviy villa, oshxona, kaminli mehmonxona, divan, marmar pol" />
-        
-        <button id="generate-btn">✨ AI bilan yaratish</button>
-        <button id="random-btn">🎲 Tasodifiy uy</button>
-        <button id="download-btn">💾 Yuklab olish (GLB)</button>
-        <button id="edit-mode-btn">✏️ Tahrir rejimi</button>
-        <button id="save-btn">🔒 Saqlash</button>
-        <button id="load-btn">📂 Yuklash</button>
+    <!-- 3D Canvas Konteyneri -->
+    <div id="canvas-container"></div>
 
-        <!-- Kamera rejimlarini boshqarish tugmalari -->
-        <div id="camera-controls" style="margin: 10px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;">
-            <label style="display: block; margin-bottom: 5px;"><b>Kamera Rejimi:</b></label>
-            <div style="display: flex; gap: 5px;">
-                <button id="cam-orbit-btn" class="active" style="flex: 1; padding: 6px;">🛸 Orbit 3D</button>
-                <button id="cam-fps-btn" style="flex: 1; padding: 6px;">🚶 FPS Yurish</button>
-                <button id="cam-top-btn" style="flex: 1; padding: 6px;">📐 2D Sxema</button>
+    <!-- Asosiy UI Boshqaruv Paneli -->
+    <div id="ui" class="ui-panel">
+        <div class="panel-header">
+            <h2>Uy/Xona Generatori <span class="badge">AI Powered</span></h2>
+        </div>
+        
+        <!-- Prompt Kiritish va Asosiy Tugmalar -->
+        <div class="input-section">
+            <textarea id="prompt-input" rows="2" placeholder="Masalan: 2 qavatli zamonaviy villa, oshxona, kaminli mehmonxona, divan, marmar pol"></textarea>
+            
+            <div class="btn-grid primary-actions">
+                <button id="generate-btn" class="btn btn-primary">✨ AI bilan yaratish</button>
+                <button id="random-btn" class="btn btn-secondary">🎲 Tasodifiy uy</button>
             </div>
         </div>
 
-        <!-- Yoritish rejimlari va Rang palitrasi -->
-        <div id="color-palette">
-            <label>Devor: <input type="color" id="wall-color" value="#cccccc"></label>
-            <label>Pol: <input type="color" id="floor-color" value="#8a5a2b"></label>
-            <label>Tom: <input type="color" id="roof-color" value="#aa5555"></label>
-            <label style="margin-top: 6px;">Yoritish: 
-                <select id="lighting-select" style="padding: 2px 4px; border-radius: 4px;">
-                    <option value="day">Kunduzgi</option>
-                    <option value="sunny">Quyoshli</option>
-                    <option value="sunset">Kechqurun</option>
-                    <option value="night">Tun</option>
-                </select>
-            </label>
+        <!-- AI uchun prompt misollari -->
+        <div id="prompt-examples" class="examples-section">
+            <small class="section-title">Tayyor namunalar:</small>
+            <div class="example-tags">
+                <button class="example-btn" data-prompt="1 xonali shinam xonadon, divan, TV, jurnal stoli, oq devor, yog'och pol">🏠 1 xonali kvartira</button>
+                <button class="example-btn" data-prompt="2 qavatli kottedj, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa va hovli">🏰 2 qavatli kottedj</button>
+                <button class="example-btn" data-prompt="zamonaviy high-tech ofis, katta ish stoli, kreslo, kitob javoni, panoramali derazalar">🏢 High-Tech Ofis</button>
+                <button class="example-btn" data-prompt="shinam hammom, dush kabina, unitaz, rakovina, kulrang kafel">🛁 Hammom</button>
+            </div>
         </div>
 
-        <!-- AI uchun prompt misollari -->
-        <div id="prompt-examples">
-            <button class="example-btn" data-prompt="1 xonali shinam xonadon, divan, TV, jurnal stoli, oq devor, yog'och pol">1 xonali kvartira</button>
-            <button class="example-btn" data-prompt="2 qavatli kottedj, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa va hovli">2 qavatli kottedj</button>
-            <button class="example-btn" data-prompt="zamonaviy high-tech ofis, katta ish stoli, kreslo, kitob javoni, panoramali derazalar">High-Tech Ofis</button>
-            <button class="example-btn" data-prompt="shinam hammom, dush kabina, unitaz, rakovina, kulrang kafel">Hammom</button>
+        <div class="divider"></div>
+
+        <!-- Kamera Rejimlarini Boshqarish -->
+        <div id="camera-controls" class="control-box">
+            <label class="section-label">🎥 Kamera Rejimi:</label>
+            <div class="btn-group">
+                <button id="cam-orbit-btn" class="btn btn-toggle active">🛸 Orbit 3D</button>
+                <button id="cam-fps-btn" class="btn btn-toggle">🚶 FPS Yurish</button>
+                <button id="cam-top-btn" class="btn btn-toggle">📐 2D Sxema</button>
+            </div>
         </div>
+
+        <!-- Yoritish va Rang Palitrasi -->
+        <div id="color-palette" class="control-box">
+            <label class="section-label">🎨 Ranglar va Yoritish:</label>
+            <div class="color-picker-grid">
+                <label>Devor: <input type="color" id="wall-color" value="#cccccc"></label>
+                <label>Pol: <input type="color" id="floor-color" value="#8a5a2b"></label>
+                <label>Tom: <input type="color" id="roof-color" value="#aa5555"></label>
+            </div>
+            
+            <div class="select-field">
+                <label for="lighting-select">Yoritish vaqti:</label>
+                <select id="lighting-select">
+                    <option value="day">☀️ Kunduzgi</option>
+                    <option value="sunny">🌞 Quyoshli</option>
+                    <option value="sunset">🌅 Kechqurun</option>
+                    <option value="night">🌙 Tun</option>
+                    <option value="cloudy">☁️ Bulutli</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Tahrirlash, Saqlash va Eksport -->
+        <div class="tools-section">
+            <label class="section-label">🛠️ Tahrir va Loyiha:</label>
+            <div class="btn-grid">
+                <button id="edit-mode-btn" class="btn btn-outline">✏️ Tahrir rejimi</button>
+                <button id="download-btn" class="btn btn-outline">💾 Yuklab olish (GLB)</button>
+            </div>
+            <div class="btn-grid multi-btn" style="margin-top: 6px;">
+                <button id="save-btn" class="btn btn-small">🔒 Saqlash</button>
+                <button id="load-btn" class="btn btn-small">📂 Yuklash</button>
+            </div>
+        </div>
+
+        <div class="divider"></div>
 
         <!-- Statistika paneli -->
-        <div id="stats">
-            <strong>AI Loyiha Statistikasi:</strong>
+        <div id="stats" class="stats-box">
+            <strong>📊 AI Loyiha Statistikasi:</strong>
             <div id="stats-content">Hali loyiha yaratilmagan.</div>
         </div>
 
-        <p><small>
-            AI ga uylarning qavatlar soni, xonalar va mebellar joylashuvini xohlagan tildagidek erkin tasvirlab bering.
-        </small></p>
+        <p class="hint-text">
+            <small>💡 Uylarning qavatlar soni, xonalar va mebellar joylashuvini xohlagan tildagidek erkin tasvirlashingiz mumkin.</small>
+        </p>
     </div>
-    <div id="canvas-container"></div>
+
+    <!-- Mobil Sensorli Boshqaruv (Touch / Mobile Overlay) Container -->
+    <div id="mobile-touch-controls" class="mobile-overlay" style="display: none;">
+        <div id="joystick-zone" class="joystick-container"></div>
+        <div class="mobile-hint">Ekranni suring (Look around) / Joystik bilan yuring</div>
+    </div>
+
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
