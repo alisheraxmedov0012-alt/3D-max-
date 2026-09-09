@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ArchViz AI Assistant — Professional</title>
+    <title>ArchViz AI Assistant — GPT-4o Mini</title>
     <link rel="stylesheet" href="style.css">
     <script type="importmap">
     {
@@ -16,9 +16,12 @@
 </head>
 <body>
     <div id="ui">
-        <h2>Uy/xona generator (Professional)</h2>
-        <input type="text" id="prompt-input" placeholder="Masalan: uch xonali uy, oshxona, derazalar, eshik, garaj" />
-        <button id="generate-btn">Yaratish</button>
+        <h2>Uy/xona generator <span style="font-size: 12px; background: #007bff; color: white; padding: 2px 6px; border-radius: 4px;">AI Powered</span></h2>
+        
+        <!-- Prompt inputi AI uchun kengaytirilgan va aniqroq misol bilan -->
+        <input type="text" id="prompt-input" placeholder="Masalan: 2 qavatli zamonaviy villa, oshxona, kaminli mehmonxona, divan, marmar pol" />
+        
+        <button id="generate-btn">✨ AI bilan yaratish</button>
         <button id="random-btn">🎲 Tasodifiy uy</button>
         <button id="download-btn">💾 Yuklab olish (GLB)</button>
         <button id="edit-mode-btn">✏️ Tahrir rejimi</button>
@@ -32,23 +35,22 @@
             <label>Tom: <input type="color" id="roof-color" value="#aa5555"></label>
         </div>
 
-        <!-- Prompt misollari -->
+        <!-- AI uchun mukammal prompt misollari -->
         <div id="prompt-examples">
-            <button class="example-btn" data-prompt="1 xonali uy, divan, stol, deraza, oq devor">1 xonali uy</button>
-            <button class="example-btn" data-prompt="2 qavatli uy, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa">2 qavatli uy</button>
-            <button class="example-btn" data-prompt="zamonaviy ofis, stol, kreslo, shkaf, katta derazalar, marmar pol">Ofis</button>
-            <button class="example-btn" data-prompt="hammom, dush, unitaz, rakovina, oq devor, kulrang pol">Hammom</button>
+            <button class="example-btn" data-prompt="1 xonali shinam xonadon, divan, TV, jurnal stoli, oq devor, yog'och pol">1 xonali kvartira</button>
+            <button class="example-btn" data-prompt="2 qavatli kottedj, mehmonxona, oshxona, yotoqxona, garaj, tom, maysa va hovli">2 qavatli kottedj</button>
+            <button class="example-btn" data-prompt="zamonaviy high-tech ofis, katta ish stoli, kreslo, kitob javoni, panoramali derazalar">High-Tech Ofis</button>
+            <button class="example-btn" data-prompt="shinam hammom, dush kabina, unitaz, rakovina, kulrang kafel">Hammom</button>
         </div>
 
         <!-- Statistika paneli -->
         <div id="stats">
-            <strong>Statistika:</strong>
+            <strong>AI Loyiha Statistikasi:</strong>
             <div id="stats-content">Hali loyiha yaratilmagan.</div>
         </div>
 
         <p><small>
-            Promptda xona turlari, mebellar, ranglar, o'lchamlar va yoritishni ko'rsating.
-            Rang palitrasi orqali devor/pol/tom rangini belgilang.
+            AI ga uylarning qavatlar soni, xonalar va mebellar joylashuvini xohlagan tildagidek erkin tasvirlab bering.
         </small></p>
     </div>
     <div id="canvas-container"></div>
