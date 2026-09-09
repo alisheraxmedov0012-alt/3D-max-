@@ -11,12 +11,15 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 const container = document.getElementById('canvas-container');
 const { scene, camera, renderer, controls } = createScene(container);
 
-// ---------- 4-bosqich: Renderer soyalari va LightingManager sozlamalari ----------
+// ---------- WebGL Renderer va Soyalar Optimizatsiyasi (Mobil uchun) ----------
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-const lightingManager = new LightingManager(scene);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-// ---------- 5-bosqich: CameraManager instansiyasini yaratish ----------
+const lightingManager = new LightingManager(scene);
 const cameraManager = new CameraManager(camera, scene, renderer, controls);
 
 let houseGroup = null;
@@ -36,21 +39,23 @@ transformControls.addEventListener('dragging-changed', (event) => {
 });
 scene.add(transformControls);
 
-// ---------- MOBIL JOYSTICK HODISALARINI CAMERAMANAGER GA UZATISH ----------
-function setupMobileJoystick() {
+// ---------- MOBIL JOYSTICK VA TOUCH-LOOK BOSHQARUVI ----------
+function setupMobileControls() {
     const joystickBase = document.getElementById('joystick-base');
     const joystickStick = document.getElementById('joystick-stick');
 
     if (!joystickBase || !joystickStick) return;
 
-    let touchId = null;
+    let joystickTouchId = null;
+    let lookTouchId = null;
     let baseCenter = { x: 0, y: 0 };
+    let lastLookPos = { x: 0, y: 0 };
     const maxRadius = 40; // Joystik harakatlanish radiusi (px)
 
     joystickBase.addEventListener('touchstart', (e) => {
-        if (touchId !== null) return;
+        if (joystickTouchId !== null) return;
         const touch = e.changedTouches[0];
-        touchId = touch.identifier;
+        joystickTouchId = touch.identifier;
 
         const rect = joystickBase.getBoundingClientRect();
         baseCenter = {
@@ -61,26 +66,49 @@ function setupMobileJoystick() {
         handleJoystickMove(touch);
     }, { passive: false });
 
-    window.addEventListener('touchmove', (e) => {
-        if (touchId === null) return;
+    // Ekranning qolgan qismida touch-look (FPS rejimida kamera aylantirish)
+    window.addEventListener('touchstart', (e) => {
         for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === touchId) {
-                handleJoystickMove(e.changedTouches[i]);
-                break;
+            const touch = e.changedTouches[i];
+            if (lookTouchId === null && !joystickBase.contains(e.target)) {
+                const rect = joystickBase.getBoundingClientRect();
+                if (!(touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                      touch.clientY >= rect.top && touch.clientY <= rect.bottom)) {
+                    lookTouchId = touch.identifier;
+                    lastLookPos = { x: touch.clientX, y: touch.clientY };
+                    break;
+                }
+            }
+        }
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === joystickTouchId) {
+                handleJoystickMove(touch);
+            } else if (touch.identifier === lookTouchId) {
+                const deltaX = touch.clientX - lastLookPos.x;
+                const deltaY = touch.clientY - lastLookPos.y;
+                lastLookPos = { x: touch.clientX, y: touch.clientY };
+
+                if (cameraManager.updateTouchLook) {
+                    cameraManager.updateTouchLook(deltaX, deltaY);
+                }
             }
         }
     }, { passive: false });
 
     const handleTouchEnd = (e) => {
-        if (touchId === null) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === touchId) {
-                touchId = null;
-                // Joystikni markazga qaytarish
+            const touch = e.changedTouches[i];
+            if (touch.identifier === joystickTouchId) {
+                joystickTouchId = null;
                 joystickStick.style.transform = `translate(-50%, -50%) translate(0px, 0px)`;
-                // CameraManager ga 0 vektorni uzatish (to'xtash)
                 cameraManager.updateJoystickInput(0, 0);
-                break;
+            }
+            if (touch.identifier === lookTouchId) {
+                lookTouchId = null;
             }
         }
     };
@@ -99,10 +127,8 @@ function setupMobileJoystick() {
         const moveX = Math.cos(angle) * clampedDist;
         const moveY = Math.sin(angle) * clampedDist;
 
-        // Visual joystik tugmachasini surish
         joystickStick.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
 
-        // Normallashtirilgan -1.0 va 1.0 oralig'idagi qiymatni CameraManager ga yuborish
         const normX = moveX / maxRadius;
         const normY = moveY / maxRadius;
 
@@ -113,11 +139,7 @@ function setupMobileJoystick() {
 // ---------- Xotirani tozalash (Memory Disposal) ----------
 function disposeObject(obj) {
     if (!obj) return;
-
-    if (obj.geometry) {
-        obj.geometry.dispose();
-    }
-
+    if (obj.geometry) obj.geometry.dispose();
     if (obj.material) {
         if (Array.isArray(obj.material)) {
             obj.material.forEach(mat => disposeMaterial(mat));
@@ -535,7 +557,7 @@ window.addEventListener('resize', () => {
 window.addEventListener('load', () => {
     setupColorPalette();
     setupPromptExamples();
-    setupMobileJoystick(); // <-- Mobil Joystikni ishga tushirish va ulab qo'yish
+    setupMobileControls(); // <-- Mobil joystik va touch-look boshqaruvi to'liq ulandi
 
     const savedPrompt = localStorage.getItem('lastPrompt');
     if (savedPrompt) {
@@ -550,11 +572,8 @@ window.addEventListener('load', () => {
 // ---------- Animatsiya tsikli ----------
 function animate() {
     requestAnimationFrame(animate);
-
-    // CameraManager rejimlarini kadrma-kadr yangilash
     cameraManager.update();
-
     renderer.render(scene, camera);
 }
 animate();
-    
+                                                
