@@ -3,7 +3,7 @@ import { parsePrompt } from './parser.js';
 import { buildHouse, getHouseBoundingBox, loadGLTFFurnitureForHouse } from './roomBuilder.js'; 
 import { generateHouseJSONFromAI } from './aiService.js';
 import { LightingManager } from './lightingManager.js'; 
-import { CameraManager } from './cameraManager.js'; // <-- 5-BOSQICH: Kamera boshqaruvi importi
+import { CameraManager } from './cameraManager.js';
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -35,6 +35,80 @@ transformControls.addEventListener('dragging-changed', (event) => {
     controls.enabled = !event.value;
 });
 scene.add(transformControls);
+
+// ---------- MOBIL JOYSTICK HODISALARINI CAMERAMANAGER GA UZATISH ----------
+function setupMobileJoystick() {
+    const joystickBase = document.getElementById('joystick-base');
+    const joystickStick = document.getElementById('joystick-stick');
+
+    if (!joystickBase || !joystickStick) return;
+
+    let touchId = null;
+    let baseCenter = { x: 0, y: 0 };
+    const maxRadius = 40; // Joystik harakatlanish radiusi (px)
+
+    joystickBase.addEventListener('touchstart', (e) => {
+        if (touchId !== null) return;
+        const touch = e.changedTouches[0];
+        touchId = touch.identifier;
+
+        const rect = joystickBase.getBoundingClientRect();
+        baseCenter = {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2
+        };
+
+        handleJoystickMove(touch);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+        if (touchId === null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) {
+                handleJoystickMove(e.changedTouches[i]);
+                break;
+            }
+        }
+    }, { passive: false });
+
+    const handleTouchEnd = (e) => {
+        if (touchId === null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === touchId) {
+                touchId = null;
+                // Joystikni markazga qaytarish
+                joystickStick.style.transform = `translate(-50%, -50%) translate(0px, 0px)`;
+                // CameraManager ga 0 vektorni uzatish (to'xtash)
+                cameraManager.updateJoystickInput(0, 0);
+                break;
+            }
+        }
+    };
+
+    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchcancel', handleTouchEnd);
+
+    function handleJoystickMove(touch) {
+        const deltaX = touch.clientX - baseCenter.x;
+        const deltaY = touch.clientY - baseCenter.y;
+        const distance = Math.hypot(deltaX, deltaY);
+
+        const angle = Math.atan2(deltaY, deltaX);
+        const clampedDist = Math.min(distance, maxRadius);
+
+        const moveX = Math.cos(angle) * clampedDist;
+        const moveY = Math.sin(angle) * clampedDist;
+
+        // Visual joystik tugmachasini surish
+        joystickStick.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
+
+        // Normallashtirilgan -1.0 va 1.0 oralig'idagi qiymatni CameraManager ga yuborish
+        const normX = moveX / maxRadius;
+        const normY = moveY / maxRadius;
+
+        cameraManager.updateJoystickInput(normX, normY);
+    }
+}
 
 // ---------- Xotirani tozalash (Memory Disposal) ----------
 function disposeObject(obj) {
@@ -184,7 +258,6 @@ function hideLoading() {
 function fitCameraToHouse(group) {
     if (!group) return;
     
-    // Agar kamera Orbit rejimida bo'lsa kamerani moslaymiz
     if (cameraManager.currentMode === 'orbit') {
         const box = getHouseBoundingBox(group);
         const size = box.getSize(new THREE.Vector3());
@@ -197,7 +270,6 @@ function fitCameraToHouse(group) {
         controls.target.copy(center);
         controls.update();
     } else {
-        // Boshqa rejimda bo'lsa tanlangan rejim bo'yicha moslashtiramiz
         cameraManager.setMode(cameraManager.currentMode, group);
     }
 }
@@ -235,7 +307,7 @@ function updateStats(data) {
     `;
 }
 
-// ---------- Sahna Yaratish Pipeline (AI + GLTF + Lighting Integratsiyalangan) ----------
+// ---------- Sahna Yaratish Pipeline ----------
 async function generateHouse(prompt) {
     if (!prompt) return;
 
@@ -269,14 +341,11 @@ async function generateHouse(prompt) {
         if (currentCustomColors.floor !== null) data.materials.floor = currentCustomColors.floor;
         if (currentCustomColors.roof !== null) data.materials.roof = currentCustomColors.roof;
 
-        // 4-bosqich: Yoritish va Osmon rejimini o'rnatish
         lightingManager.setTimePreset(data.lighting || 'day');
 
-        // Uyni qurish
         houseGroup = buildHouse(data);
         scene.add(houseGroup);
 
-        // 3-bosqich: Tayyor 3D GLTF mebellarni asinxron fonda yuklab o'rnatish
         if (data.modelUrls) {
             loadGLTFFurnitureForHouse(houseGroup, data.modelUrls);
         }
@@ -423,7 +492,7 @@ function setupPromptExamples() {
     });
 }
 
-// ---------- 5-BOSQICH: Kamera rejimlari tugmalari hodisalari ----------
+// ---------- Kamera rejimlari tugmalari ----------
 document.getElementById('cam-orbit-btn')?.addEventListener('click', () => {
     cameraManager.setMode('orbit', houseGroup);
 });
@@ -466,6 +535,7 @@ window.addEventListener('resize', () => {
 window.addEventListener('load', () => {
     setupColorPalette();
     setupPromptExamples();
+    setupMobileJoystick(); // <-- Mobil Joystikni ishga tushirish va ulab qo'yish
 
     const savedPrompt = localStorage.getItem('lastPrompt');
     if (savedPrompt) {
@@ -477,19 +547,14 @@ window.addEventListener('load', () => {
     }
 });
 
-// ---------- 5-BOSQICH: Animatsiya tsikliga update ulash ----------
+// ---------- Animatsiya tsikli ----------
 function animate() {
     requestAnimationFrame(animate);
 
-    // CameraManager rejimlarini kadrma-kadr yangilash (WASD harakatlari va boshqalar)
+    // CameraManager rejimlarini kadrma-kadr yangilash
     cameraManager.update();
-
-    // FPS rejimida bo'lmaganda OrbitControls-ni yangilaymiz
-    if (cameraManager.currentMode !== 'fps') {
-        controls.update();
-    }
 
     renderer.render(scene, camera);
 }
 animate();
-                      
+    
