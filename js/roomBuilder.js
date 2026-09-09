@@ -10,6 +10,40 @@ import {
     createStairs,
     createFloorSlab
 } from './objects.js';
+import { textureManager } from './textureLoader.js';
+
+// Materiallarni material tipiga yoki rangiga qarab yaratuvchi yordamchi funksiya
+export function getAdvancedMaterial(typeOrColor, defaultColor = 0xcccccc) {
+    if (typeOrColor === 'wood') {
+        return new THREE.MeshStandardMaterial({
+            map: textureManager.createWoodTexture(),
+            roughness: 0.4,
+            metalness: 0.1
+        });
+    }
+    if (typeOrColor === 'brick') {
+        return new THREE.MeshStandardMaterial({
+            map: textureManager.createBrickTexture(),
+            roughness: 0.8,
+            metalness: 0.0
+        });
+    }
+    if (typeOrColor === 'tile') {
+        return new THREE.MeshStandardMaterial({
+            map: textureManager.createTileTexture(),
+            roughness: 0.2,
+            metalness: 0.1
+        });
+    }
+
+    // Agar rang qiymati berilgan bo'lsa
+    const colorVal = typeof typeOrColor === 'number' ? typeOrColor : defaultColor;
+    return new THREE.MeshStandardMaterial({
+        color: colorVal,
+        roughness: 0.5,
+        metalness: 0.1
+    });
+}
 
 // Xona o'lchamlarini olish (Dinamik + Standart fallback)
 function getRoomSize(roomType, customDimensions = {}) {
@@ -164,7 +198,7 @@ function createRoom(roomWidth, roomDepth, wallHeight, openings, furniture = [], 
     const wallColor = materials.wall || 0xd1c7bd;
     const floorColor = materials.floor || 0x8a5a2b;
 
-    // Pol va Shift
+    // Pol va Shift (Teksturalar qo'llanilgan)
     const floor = createFloorSlab(roomWidth, 0.2, roomDepth, floorColor, 0, -0.1, 0);
     const ceiling = createFloorSlab(roomWidth, 0.2, roomDepth, wallColor, 0, wallHeight + 0.1, 0);
     group.add(floor, ceiling);
@@ -325,4 +359,5 @@ export function buildHouse(data) {
 // Sahnaga moslashtirish uchun BoundingBox olish
 export function getHouseBoundingBox(houseGroup) {
     return new THREE.Box3().setFromObject(houseGroup);
-}
+    }
+                                             
