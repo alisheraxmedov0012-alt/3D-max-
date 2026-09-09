@@ -1,6 +1,7 @@
 import { createScene } from './scene.js';
 import { parsePrompt } from './parser.js';
 import { buildHouse, getHouseBoundingBox } from './roomBuilder.js';
+import { generateHouseJSONFromAI } from './aiService.js'; // <-- 1. AI xizmatini ulaymiz
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -45,7 +46,6 @@ function disposeObject(obj) {
 function disposeMaterial(mat) {
     if (!mat) return;
     mat.dispose();
-    // Material teksturalarini xotiradan o'chirish
     for (const key of Object.keys(mat)) {
         if (mat[key] && mat[key].isTexture) {
             mat[key].dispose();
@@ -161,7 +161,7 @@ function showLoading() {
         loadingIndicator.style.fontSize = '14px';
         loadingIndicator.style.zIndex = '100';
         loadingIndicator.style.pointerEvents = 'none';
-        loadingIndicator.textContent = '3D Sahna yaratilmoqda...';
+        loadingIndicator.textContent = 'AI 3D Sahnani yaratmoqda...';
         document.body.appendChild(loadingIndicator);
     }
     loadingIndicator.style.display = 'block';
@@ -194,7 +194,7 @@ function updateStats(data) {
         kids: 'bolalar xonasi', bathroom: 'hammom', garage: 'garaj', corridor: 'koridor'
     };
 
-    const roomsList = data.rooms.map(r => roomNames[r.type] || r.type).join(', ');
+    const roomsList = (data.rooms || []).map(r => roomNames[r.type] || r.type).join(', ');
     const totalFurniture = data.furniture ? data.furniture.length : 0;
     const floors = data.floors || 1;
 
@@ -208,17 +208,17 @@ function updateStats(data) {
     };
 
     statsDiv.innerHTML = `
-        <b>Xonalar:</b> ${data.rooms.length} (${roomsList || '—'})<br>
+        <b>Xonalar:</b> ${data.rooms ? data.rooms.length : 0} (${roomsList || '—'})<br>
         <b>Qavatlar:</b> ${floors}<br>
         <b>Mebellar:</b> ${totalFurniture}<br>
-        <b>Uslub:</b> ${styleMap[data.style] || 'aniqlanmagan'}<br>
+        <b>Uslub:</b> ${styleMap[data.style] || 'zamonaviy'}<br>
         <b>Yoritish:</b> ${lightingMap[data.lighting] || 'kunduzgi'}<br>
         <b>Landshaft:</b> ${data.landscape ? 'Bor' : 'Yo\'q'}<br>
         <b>Tom:</b> ${data.roof ? 'Bor' : 'Yo\'q'}
     `;
 }
 
-// ---------- Sahna Yaratish Pipeline (Async) ----------
+// ---------- Sahna Yaratish Pipeline (AI Integratsiyalangan) ----------
 async function generateHouse(prompt) {
     if (!prompt) return;
 
@@ -226,21 +226,30 @@ async function generateHouse(prompt) {
     localStorage.setItem('lastPrompt', prompt);
     showLoading();
 
-    // UI render bo'lishi uchun mikro kesilish
     await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
         deselectObject();
 
-        // Eski xotirani to'liq tozalash
         if (houseGroup) {
             disposeGroup(houseGroup);
             houseGroup = null;
         }
 
-        const parsed = await parsePrompt(prompt);
-        const data = parsed.random ? createRandomHouseData() : parsed;
+        let data = null;
 
+        // 2. Tasodifiy rejim bo'lmasa, avval AI ga so'rov yuboramiz
+        if (prompt !== 'tasodifiy uy' && prompt !== 'random') {
+            data = await generateHouseJSONFromAI(prompt);
+        }
+
+        // 3. Agar AI ishlamasa yoki tasodifiy tugma bosilsa, fallback parser ishlaydi
+        if (!data) {
+            const parsed = await parsePrompt(prompt);
+            data = parsed.random ? createRandomHouseData() : parsed;
+        }
+
+        if (!data.materials) data.materials = {};
         if (currentCustomColors.wall !== null) data.materials.wall = currentCustomColors.wall;
         if (currentCustomColors.floor !== null) data.materials.floor = currentCustomColors.floor;
         if (currentCustomColors.roof !== null) data.materials.roof = currentCustomColors.roof;
@@ -327,7 +336,6 @@ function onPointerDown(event) {
 
     if (intersects.length > 0) {
         let target = intersects[0].object;
-        // Agar guruh tarkibidagi obyekt bo'lsa, eng yuqori modulgacha chiqish
         while (target.parent && target.parent !== houseGroup && !target.userData.isInteractable) {
             target = target.parent;
         }
