@@ -322,3 +322,11 @@ export function createTreeInstances(positions) {
     group.add(trunks, canopies);
     return group;
 }
+
+// 10. Pol plitasi (Floor Slab) - Xatolikni bartaraf etish uchun qo'shildi
+export function createFloorSlab(width, height, depth, color, x = 0, y = 0, z = 0, opts = {}) {
+    const mesh = createBox(width, height, depth, color, x, y, z, opts);
+    mesh.userData = { isInteractable: false, type: 'floor' };
+    return mesh;
+            }
+                
