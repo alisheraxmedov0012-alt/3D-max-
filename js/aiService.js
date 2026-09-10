@@ -1,7 +1,5 @@
 // js/aiService.js
 
-const OPENROUTER_API_KEY = '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';
-
 const SYSTEM_INSTRUCTION = `
 Siz professional 3D ArchViz va arxitektura bo'yicha mutaxassis AI siz.
 Foydalanuvchi matnli prompt kiritadi. Siz javobda FAQAT va FAQAT to'g'ri shakllantirilgan JSON formatidagi 3D xonalar va mebellar sxemasini qaytarishingiz kerak. Hech qanday ortiqcha matn yoki izoh yozmang.
@@ -14,13 +12,31 @@ JSON Tuzilishi:
 - landscape (boolean), roof (boolean)
 `;
 
+// API kalitni brauzer xotirasidan olish yoki so'rash
+function getApiKey() {
+    let key = localStorage.getItem("OPENROUTER_API_KEY");
+    if (!key) {
+        key = prompt("OpenRouter API kalitingizni kiriting:");
+        if (key) {
+            localStorage.setItem("OPENROUTER_API_KEY", key.trim());
+        }
+    }
+    return key;
+}
+
 export async function generateHouseJSONFromAI(userPrompt) {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        alert("API kalit kiritilmadi!");
+        return null;
+    }
+
     try {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "Authorization": `Bearer ${apiKey}`,
                 "HTTP-Referer": window.location.origin,
                 "X-Title": "3D ArchViz Generator"
             },
@@ -37,23 +53,23 @@ export async function generateHouseJSONFromAI(userPrompt) {
 
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
-            console.error("OpenRouter API Xatolik tafsiloti:", errData);
-            throw new Error(errData.error?.message || `OpenRouter API Xatosi: ${response.status}`);
+            if (response.status === 401) {
+                localStorage.removeItem("OPENROUTER_API_KEY"); // Noto'g'ri kalit bo'lsa o'chirish
+            }
+            throw new Error(errData.error?.message || `Server xatosi: ${response.status}`);
         }
 
         const data = await response.json();
         const rawContent = data.choices?.[0]?.message?.content;
 
-        if (!rawContent) {
-            throw new Error("AI to'g'ri javob strukturasini qaytarmadi.");
-        }
+        if (!rawContent) throw new Error("AI javob qaytarmadi.");
 
         const cleanJson = rawContent.replace(/```json|```/g, '').trim();
         return JSON.parse(cleanJson);
 
     } catch (error) {
-        console.error("GPT-4o-mini generatsiyasida xatolik:", error.message || error);
-        alert("Generatsiya xatosi: " + (error.message || "Noma'lum xatolik"));
+        console.error("Generatsiya xatosi:", error.message || error);
+        alert("Xatolik: " + (error.message || "Ulanish imkonsiz"));
         throw error;
     }
 }
