@@ -1,6 +1,6 @@
 // js/aiService.js
 
-const OPENAI_API_KEY = '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';
+const OPENROUTER_API_KEY = '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';
 
 const SYSTEM_INSTRUCTION = `
 Siz professional 3D ArchViz va arxitektura bo'yicha mutaxassis AI siz.
@@ -16,14 +16,16 @@ JSON Tuzilishi:
 
 export async function generateHouseJSONFromAI(userPrompt) {
     try {
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_API_KEY}`
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "HTTP-Referer": window.location.origin,
+                "X-Title": "3D ArchViz Generator"
             },
             body: JSON.stringify({
-                model: "gpt-4o-mini",
+                model: "openai/gpt-4o-mini",
                 response_format: { type: "json_object" },
                 messages: [
                     { role: "system", content: SYSTEM_INSTRUCTION },
@@ -35,19 +37,19 @@ export async function generateHouseJSONFromAI(userPrompt) {
 
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
-            console.error("OpenAI API Xatolik tafsiloti:", errData);
-            throw new Error(errData.error?.message || `OpenAI API Xatosi: ${response.status}`);
+            console.error("OpenRouter API Xatolik tafsiloti:", errData);
+            throw new Error(errData.error?.message || `OpenRouter API Xatosi: ${response.status}`);
         }
 
         const data = await response.json();
+        const rawContent = data.choices?.[0]?.message?.content;
 
-        // Javob strukturasini xavfsiz tekshirish
-        const jsonContent = data.choices?.[0]?.message?.content;
-        if (!jsonContent) {
+        if (!rawContent) {
             throw new Error("AI to'g'ri javob strukturasini qaytarmadi.");
         }
 
-        return JSON.parse(jsonContent);
+        const cleanJson = rawContent.replace(/```json|```/g, '').trim();
+        return JSON.parse(cleanJson);
 
     } catch (error) {
         console.error("GPT-4o-mini generatsiyasida xatolik:", error.message || error);
