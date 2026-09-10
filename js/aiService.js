@@ -34,18 +34,24 @@ export async function generateHouseJSONFromAI(userPrompt) {
         });
 
         if (!response.ok) {
-            const errData = await response.json();
+            const errData = await response.json().catch(() => ({}));
             console.error("OpenAI API Xatolik tafsiloti:", errData);
-            throw new Error(`OpenAI API Xatosi: ${response.status}`);
+            throw new Error(errData.error?.message || `OpenAI API Xatosi: ${response.status}`);
         }
 
         const data = await response.json();
-        const jsonContent = data.choices[0].message.content;
+
+        // Javob strukturasini xavfsiz tekshirish
+        const jsonContent = data.choices?.[0]?.message?.content;
+        if (!jsonContent) {
+            throw new Error("AI to'g'ri javob strukturasini qaytarmadi.");
+        }
+
         return JSON.parse(jsonContent);
 
     } catch (error) {
-        console.error("GPT-4o-mini generatsiyasida xatolik:", error);
-        return null;
+        console.error("GPT-4o-mini generatsiyasida xatolik:", error.message || error);
+        alert("Generatsiya xatosi: " + (error.message || "Noma'lum xatolik"));
+        throw error;
     }
 }
-
